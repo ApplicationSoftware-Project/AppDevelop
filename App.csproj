@@ -3,8 +3,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Yarp.ReverseProxy" Version="2.2.0" />
-		<PackageReference Include="Microsoft.SemanticKernel" Version="1.30.0" />
-		<PackageReference Include="Swashbuckle.AspNetCore" Version="7.0.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
+		<PackageReference Include="Microsoft.SemanticKernel.Core" Version="1.74.0" />
+		<PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
+		<PackageReference Include="Microsoft.SemanticKernel" Version="1.74.0" />
+		<PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
 	</ItemGroup>
 </Project>

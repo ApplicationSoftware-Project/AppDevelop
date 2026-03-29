@@ -30,6 +30,9 @@ kernelBuilder.AddOpenAIChatCompletion(
 var kernel = kernelBuilder.Build();
 builder.Services.AddSingleton(kernel);
 
+// 환경변수나 User Secrets에서 민감 정보를 읽어올 수 있도록 구성 예시
+// 예: AI__OpenAIKey 환경변수를 설정하면 builder.Configuration["AI:OpenAIKey"]로 접근 가능
+
 var app = builder.Build();
 
 // 2. 미들웨어 설정 (Pipeline)

@@ -5,6 +5,10 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// EF Core DbContext 등록
+builder.Services.AddDbContext<App.Data.AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 //  1. 서비스 등록 (Dependency Injection) 
 
 // Swagger API

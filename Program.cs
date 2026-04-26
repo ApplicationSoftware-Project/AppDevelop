@@ -3,6 +3,7 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using Yarp.ReverseProxy.Transforms;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,12 +53,12 @@ var categoryOptions = new[] { "식비", "카페", "교통", "쇼핑", "생활", 
 var categoryOptionsText = string.Join(", ", categoryOptions);
 
 // 팀장님의 핵심 기능: 영수증 텍스트를 받아서 AI 카테고리 제안
-app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequest request, Kernel k, App.Data.AppDbContext db, ILogger<Program> logger) =>
+app.MapPost("/api/ai/suggest-category", async Task<Results<Ok<SuggestCategoryResult>, ValidationProblem, ProblemHttpResult>> (SuggestCategoryRequest request, Kernel k, App.Data.AppDbContext db, ILogger<Program> logger) =>
 {
     if (request.ReceiptId == Guid.Empty)
     {
         logger.LogWarning("suggest-category 요청 거부: receiptId가 비어 있음");
-        return Results.ValidationProblem(new Dictionary<string, string[]>
+        return TypedResults.ValidationProblem(new Dictionary<string, string[]>
         {
             [nameof(request.ReceiptId)] = ["receiptId는 비어 있을 수 없습니다."]
         });
@@ -66,7 +67,7 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
     if (string.IsNullOrWhiteSpace(request.OcrText))
     {
         logger.LogWarning("suggest-category 요청 거부: ocrText가 비어 있음");
-        return Results.ValidationProblem(new Dictionary<string, string[]>
+        return TypedResults.ValidationProblem(new Dictionary<string, string[]>
         {
             [nameof(request.OcrText)] = ["ocrText는 비어 있을 수 없습니다."]
         });
@@ -90,12 +91,15 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
 
     try
     {
-        var parsed = JsonSerializer.Deserialize<SuggestCategoryAiResponse>(responseText);
+        var parsed = JsonSerializer.Deserialize<SuggestCategoryAiResponse>(responseText, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
 
         if (parsed is null || string.IsNullOrWhiteSpace(parsed.Category))
         {
             logger.LogWarning("AI 응답 파싱 실패: category 누락 또는 null. raw={ResponseText}", responseText);
-            return Results.Problem(
+            return TypedResults.Problem(
                 detail: "AI 응답을 해석할 수 없습니다.",
                 statusCode: StatusCodes.Status502BadGateway);
         }
@@ -121,7 +125,7 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
         logger.LogInformation("AI 추천 로그 저장 완료. LogId={LogId}, ReceiptId={ReceiptId}, Category={Category}, Confidence={Confidence}",
             log.Id, request.ReceiptId, category, confidence);
 
-        return Results.Ok(new SuggestCategoryResult(
+        return TypedResults.Ok(new SuggestCategoryResult(
             log.Id,
             category,
             confidence));
@@ -129,14 +133,14 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
     catch (DbUpdateException)
     {
         logger.LogError("AI 추천 로그 DB 저장 실패. ReceiptId={ReceiptId}", request.ReceiptId);
-        return Results.Problem(
+        return TypedResults.Problem(
             detail: "AI 추천 로그 저장 중 오류가 발생했습니다.",
             statusCode: StatusCodes.Status500InternalServerError);
     }
     catch (JsonException)
     {
         logger.LogWarning("AI 응답 JSON 형식 오류. raw={ResponseText}", responseText);
-        return Results.Problem(
+        return TypedResults.Problem(
             detail: "AI 응답 형식이 올바르지 않습니다.",
             statusCode: StatusCodes.Status502BadGateway);
     }

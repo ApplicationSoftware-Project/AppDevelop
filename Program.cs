@@ -54,13 +54,19 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
     if (request.ReceiptId == Guid.Empty)
     {
         logger.LogWarning("suggest-category 요청 거부: receiptId가 비어 있음");
-        return Results.BadRequest("receiptId는 비어 있을 수 없습니다.");
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            [nameof(request.ReceiptId)] = ["receiptId는 비어 있을 수 없습니다."]
+        });
     }
 
     if (string.IsNullOrWhiteSpace(request.OcrText))
     {
         logger.LogWarning("suggest-category 요청 거부: ocrText가 비어 있음");
-        return Results.BadRequest("ocrText는 비어 있을 수 없습니다.");
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            [nameof(request.OcrText)] = ["ocrText는 비어 있을 수 없습니다."]
+        });
     }
 
     var promptTemplate = """
@@ -136,6 +142,7 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
 .Accepts<SuggestCategoryRequest>("application/json")
 .Produces<SuggestCategoryResult>(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status400BadRequest)
+.ProducesValidationProblem(StatusCodes.Status400BadRequest)
 .ProducesProblem(StatusCodes.Status500InternalServerError)
 .ProducesProblem(StatusCodes.Status502BadGateway);
 

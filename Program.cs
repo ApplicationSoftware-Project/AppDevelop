@@ -138,7 +138,19 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
 })
 .WithName("SuggestCategory")
 .WithSummary("영수증 OCR 텍스트 기반 AI 카테고리 추천")
-.WithDescription("OCR 텍스트를 기반으로 AI가 카테고리와 신뢰도를 추천하고, 추천 결과를 AiInferenceLogs에 저장합니다.")
+.WithDescription(
+    "OCR 텍스트를 기반으로 AI가 카테고리와 신뢰도를 추천하고, 추천 결과를 AiInferenceLogs에 저장합니다.\n\n"
+    + "요청 예시:\n"
+    + "{\n"
+    + "  \"receiptId\": \"11111111-1111-1111-1111-111111111111\",\n"
+    + "  \"ocrText\": \"스타벅스 아메리카노 4500원\"\n"
+    + "}\n\n"
+    + "성공 응답 예시(200):\n"
+    + "{\n"
+    + "  \"logId\": \"22222222-2222-2222-2222-222222222222\",\n"
+    + "  \"category\": \"카페\",\n"
+    + "  \"confidence\": 0.93\n"
+    + "}")
 .Accepts<SuggestCategoryRequest>("application/json")
 .Produces<SuggestCategoryResult>(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status400BadRequest)

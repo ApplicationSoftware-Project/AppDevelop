@@ -48,8 +48,13 @@ app.UseHttpsRedirection();
 // 3. AI 비즈니스 로직: 카테고리 제안 엔드포인트
 
 // 팀장님의 핵심 기능: 영수증 텍스트를 받아서 AI 카테고리 제안
-app.MapPost("/api/ai/suggest-category", async (string ocrText, Kernel k) =>
+app.MapPost("/api/ai/suggest-category", async (SuggestCategoryRequest request, Kernel k) =>
 {
+    if (string.IsNullOrWhiteSpace(request.OcrText))
+    {
+        return Results.BadRequest("ocrText는 비어 있을 수 없습니다.");
+    }
+
     var promptTemplate = """
         당신은 가계부 정리 전문가입니다. 
         아래의 영수증 텍스트를 분석하여 [식비, 카페, 교통, 쇼핑, 생활, 기타] 중 가장 적절한 카테고리 하나를 추천하세요.
@@ -59,7 +64,7 @@ app.MapPost("/api/ai/suggest-category", async (string ocrText, Kernel k) =>
         영수증 내용:
         """;
 
-    var prompt = promptTemplate + ocrText;
+    var prompt = promptTemplate + request.OcrText;
 
     var result = await k.InvokePromptAsync(prompt);
     return Results.Ok(result.ToString());
@@ -72,3 +77,5 @@ app.MapPost("/api/ai/suggest-category", async (string ocrText, Kernel k) =>
 app.MapReverseProxy();
 
 app.Run();
+
+public sealed record SuggestCategoryRequest(string OcrText);

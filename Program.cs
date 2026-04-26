@@ -117,6 +117,9 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
     }
 })
 .WithName("SuggestCategory")
+.WithSummary("영수증 OCR 텍스트 기반 AI 카테고리 추천")
+.WithDescription("OCR 텍스트를 기반으로 AI가 카테고리와 신뢰도를 추천하고, 추천 결과를 AiInferenceLogs에 저장합니다.")
+.Accepts<SuggestCategoryRequest>("application/json")
 .Produces<SuggestCategoryResult>(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status400BadRequest)
 .ProducesProblem(StatusCodes.Status502BadGateway);

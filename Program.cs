@@ -2,6 +2,7 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Yarp.ReverseProxy.Transforms;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,7 +49,7 @@ app.UseHttpsRedirection();
 // 3. AI 비즈니스 로직: 카테고리 제안 엔드포인트
 
 // 팀장님의 핵심 기능: 영수증 텍스트를 받아서 AI 카테고리 제안
-app.MapPost("/api/ai/suggest-category", async (SuggestCategoryRequest request, Kernel k) =>
+app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequest request, Kernel k) =>
 {
     if (string.IsNullOrWhiteSpace(request.OcrText))
     {
@@ -67,7 +68,27 @@ app.MapPost("/api/ai/suggest-category", async (SuggestCategoryRequest request, K
     var prompt = promptTemplate + request.OcrText;
 
     var result = await k.InvokePromptAsync(prompt);
-    return Results.Ok(result.ToString());
+    var responseText = result.ToString();
+
+    try
+    {
+        var parsed = JsonSerializer.Deserialize<SuggestCategoryAiResponse>(responseText);
+
+        if (parsed is null || string.IsNullOrWhiteSpace(parsed.Category))
+        {
+            return Results.Problem(
+                detail: "AI 응답을 해석할 수 없습니다.",
+                statusCode: StatusCodes.Status502BadGateway);
+        }
+
+        return Results.Ok(parsed);
+    }
+    catch (JsonException)
+    {
+        return Results.Problem(
+            detail: "AI 응답 형식이 올바르지 않습니다.",
+            statusCode: StatusCodes.Status502BadGateway);
+    }
 })
 .WithName("SuggestCategory");
 
@@ -79,3 +100,4 @@ app.MapReverseProxy();
 app.Run();
 
 public sealed record SuggestCategoryRequest(string OcrText);
+public sealed record SuggestCategoryAiResponse(string Category, double Confidence);

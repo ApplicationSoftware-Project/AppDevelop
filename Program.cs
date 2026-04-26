@@ -48,6 +48,9 @@ app.UseHttpsRedirection();
 
 // 3. AI 비즈니스 로직: 카테고리 제안 엔드포인트
 
+var categoryOptions = new[] { "식비", "카페", "교통", "쇼핑", "생활", "기타" };
+var categoryOptionsText = string.Join(", ", categoryOptions);
+
 // 팀장님의 핵심 기능: 영수증 텍스트를 받아서 AI 카테고리 제안
 app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequest request, Kernel k, App.Data.AppDbContext db, ILogger<Program> logger) =>
 {
@@ -71,12 +74,14 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
 
     var promptTemplate = """
         당신은 가계부 정리 전문가입니다. 
-        아래의 영수증 텍스트를 분석하여 [식비, 카페, 교통, 쇼핑, 생활, 기타] 중 가장 적절한 카테고리 하나를 추천하세요.
+        아래의 영수증 텍스트를 분석하여 [{CATEGORY_OPTIONS}] 중 가장 적절한 카테고리 하나를 추천하세요.
         응답은 반드시 아래 JSON 형식으로만 하세요.
         { "category": "카테고리명", "confidence": 0.0~1.0 사이의 숫자 }
 
         영수증 내용:
         """;
+
+    promptTemplate = promptTemplate.Replace("{CATEGORY_OPTIONS}", categoryOptionsText);
 
     var prompt = promptTemplate + request.OcrText;
 

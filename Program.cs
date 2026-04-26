@@ -109,6 +109,12 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
             category,
             confidence));
     }
+    catch (DbUpdateException)
+    {
+        return Results.Problem(
+            detail: "AI 추천 로그 저장 중 오류가 발생했습니다.",
+            statusCode: StatusCodes.Status500InternalServerError);
+    }
     catch (JsonException)
     {
         return Results.Problem(
@@ -122,6 +128,7 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
 .Accepts<SuggestCategoryRequest>("application/json")
 .Produces<SuggestCategoryResult>(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status400BadRequest)
+.ProducesProblem(StatusCodes.Status500InternalServerError)
 .ProducesProblem(StatusCodes.Status502BadGateway);
 
 //GateWay 실행

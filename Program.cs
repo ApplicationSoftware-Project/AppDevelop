@@ -116,7 +116,10 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
             statusCode: StatusCodes.Status502BadGateway);
     }
 })
-.WithName("SuggestCategory");
+.WithName("SuggestCategory")
+.Produces<SuggestCategoryResult>(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status400BadRequest)
+.ProducesProblem(StatusCodes.Status502BadGateway);
 
 //GateWay 실행
 

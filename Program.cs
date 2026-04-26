@@ -110,6 +110,12 @@ app.MapPost("/api/ai/suggest-category", async Task<Results<Ok<SuggestCategoryRes
             category = category[..200];
         }
 
+        if (!categoryOptions.Contains(category, StringComparer.OrdinalIgnoreCase))
+        {
+            logger.LogWarning("AI 추천 카테고리가 허용 목록에 없어 '기타'로 대체합니다. rawCategory={RawCategory}", category);
+            category = "기타";
+        }
+
         var confidence = Math.Clamp(parsed.Confidence, 0d, 1d);
 
         var log = new App.Models.AiInferenceLog

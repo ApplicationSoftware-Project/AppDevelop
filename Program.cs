@@ -49,7 +49,7 @@ app.UseHttpsRedirection();
 // 3. AI 비즈니스 로직: 카테고리 제안 엔드포인트
 
 // 팀장님의 핵심 기능: 영수증 텍스트를 받아서 AI 카테고리 제안
-app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequest request, Kernel k) =>
+app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequest request, Kernel k, App.Data.AppDbContext db) =>
 {
     if (string.IsNullOrWhiteSpace(request.OcrText))
     {
@@ -81,7 +81,20 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
                 statusCode: StatusCodes.Status502BadGateway);
         }
 
-        return Results.Ok(parsed);
+        var log = new App.Models.AiInferenceLog
+        {
+            ReceiptId = request.ReceiptId,
+            SuggestedCategory = parsed.Category,
+            Confidence = parsed.Confidence
+        };
+
+        db.AiInferenceLogs.Add(log);
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new SuggestCategoryResult(
+            log.Id,
+            parsed.Category,
+            parsed.Confidence));
     }
     catch (JsonException)
     {
@@ -99,5 +112,6 @@ app.MapReverseProxy();
 
 app.Run();
 
-public sealed record SuggestCategoryRequest(string OcrText);
+public sealed record SuggestCategoryRequest(Guid ReceiptId, string OcrText);
 public sealed record SuggestCategoryAiResponse(string Category, double Confidence);
+public sealed record SuggestCategoryResult(Guid LogId, string Category, double Confidence);

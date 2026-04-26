@@ -51,6 +51,11 @@ app.UseHttpsRedirection();
 // 팀장님의 핵심 기능: 영수증 텍스트를 받아서 AI 카테고리 제안
 app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequest request, Kernel k, App.Data.AppDbContext db) =>
 {
+    if (request.ReceiptId == Guid.Empty)
+    {
+        return Results.BadRequest("receiptId는 비어 있을 수 없습니다.");
+    }
+
     if (string.IsNullOrWhiteSpace(request.OcrText))
     {
         return Results.BadRequest("ocrText는 비어 있을 수 없습니다.");
@@ -81,11 +86,19 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
                 statusCode: StatusCodes.Status502BadGateway);
         }
 
+        var category = parsed.Category.Trim();
+        if (category.Length > 200)
+        {
+            category = category[..200];
+        }
+
+        var confidence = Math.Clamp(parsed.Confidence, 0d, 1d);
+
         var log = new App.Models.AiInferenceLog
         {
             ReceiptId = request.ReceiptId,
-            SuggestedCategory = parsed.Category,
-            Confidence = parsed.Confidence
+            SuggestedCategory = category,
+            Confidence = confidence
         };
 
         db.AiInferenceLogs.Add(log);
@@ -93,8 +106,8 @@ app.MapPost("/api/ai/suggest-category", async Task<IResult> (SuggestCategoryRequ
 
         return Results.Ok(new SuggestCategoryResult(
             log.Id,
-            parsed.Category,
-            parsed.Confidence));
+            category,
+            confidence));
     }
     catch (JsonException)
     {

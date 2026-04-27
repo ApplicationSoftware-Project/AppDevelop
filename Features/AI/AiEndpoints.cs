@@ -15,19 +15,7 @@ public static class AiEndpoints
         app.MapPost("/api/ai/suggest-category", SuggestCategory)
             .WithName("SuggestCategory")
             .WithSummary("영수증 OCR 텍스트 기반 AI 카테고리 추천")
-            .WithDescription(
-                "OCR 텍스트를 기반으로 AI가 카테고리와 신뢰도를 추천하고, 추천 결과를 AiInferenceLogs에 저장합니다.\n\n"
-                + "요청 예시:\n"
-                + "{\n"
-                + "  \"receiptId\": \"11111111-1111-1111-1111-111111111111\",\n"
-                + "  \"ocrText\": \"스타벅스 아메리카노 4500원\"\n"
-                + "}\n\n"
-                + "성공 응답 예시(200):\n"
-                + "{\n"
-                + "  \"logId\": \"22222222-2222-2222-2222-222222222222\",\n"
-                + "  \"category\": \"카페\",\n"
-                + "  \"confidence\": 0.93\n"
-                + "}")
+            .WithDescription(AiEndpointDescriptions.SuggestCategory)
             .Accepts<SuggestCategoryRequest>("application/json")
             .Produces<SuggestCategoryResult>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
@@ -38,20 +26,7 @@ public static class AiEndpoints
         app.MapPost("/api/ai/confirm-category", ConfirmCategory)
             .WithName("ConfirmCategory")
             .WithSummary("AI 추천 카테고리 사용자 확정")
-            .WithDescription(
-                "사용자가 AI 추천 결과를 확정하면 FinalCategory/IsCorrect를 저장해 추론 정확도 개선을 위한 피드백 데이터를 누적합니다.\n\n"
-                + "요청 예시:\n"
-                + "{\n"
-                + "  \"logId\": \"22222222-2222-2222-2222-222222222222\",\n"
-                + "  \"finalCategory\": \"식비\"\n"
-                + "}\n\n"
-                + "성공 응답 예시(200):\n"
-                + "{\n"
-                + "  \"logId\": \"22222222-2222-2222-2222-222222222222\",\n"
-                + "  \"suggestedCategory\": \"카페\",\n"
-                + "  \"finalCategory\": \"식비\",\n"
-                + "  \"isCorrect\": false\n"
-                + "}")
+            .WithDescription(AiEndpointDescriptions.ConfirmCategory)
             .Accepts<ConfirmCategoryRequest>("application/json")
             .Produces<ConfirmCategoryResult>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
@@ -62,62 +37,27 @@ public static class AiEndpoints
         app.MapGet("/api/ai/accuracy", GetAiAccuracy)
             .WithName("GetAiAccuracy")
             .WithSummary("AI 카테고리 추천 정확도 조회")
-            .WithDescription(
-                "누적된 AI 추천 로그 중 사용자가 확정한 데이터(IsCorrect 기준)로 정확도를 계산합니다.\n\n"
-                + "성공 응답 예시(200):\n"
-                + "{\n"
-                + "  \"totalCount\": 120,\n"
-                + "  \"confirmedCount\": 80,\n"
-                + "  \"correctCount\": 61,\n"
-                + "  \"accuracy\": 0.7625\n"
-                + "}")
+            .WithDescription(AiEndpointDescriptions.Accuracy)
             .Produces<AiAccuracyResult>(StatusCodes.Status200OK);
 
         app.MapGet("/api/ai/accuracy/daily", GetAiAccuracyDaily)
             .WithName("GetAiAccuracyDaily")
             .WithSummary("AI 일별 카테고리 추천 정확도 조회")
-            .WithDescription(
-                "최근 N일(days) 기준으로 사용자 확정 데이터(IsCorrect)의 일별 정확도 추이를 반환합니다.\n\n"
-                + "요청 예시: /api/ai/accuracy/daily?days=7\n\n"
-                + "성공 응답 예시(200):\n"
-                + "{\n"
-                + "  \"days\": 7,\n"
-                + "  \"items\": [\n"
-                + "    { \"date\": \"2026-01-01\", \"confirmedCount\": 10, \"correctCount\": 8, \"accuracy\": 0.8 }\n"
-                + "  ]\n"
-                + "}")
+            .WithDescription(AiEndpointDescriptions.AccuracyDaily)
             .Produces<AiAccuracyDailyResult>(StatusCodes.Status200OK)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest);
 
         app.MapGet("/api/ai/accuracy/weekly", GetAiAccuracyWeekly)
             .WithName("GetAiAccuracyWeekly")
             .WithSummary("AI 주별 카테고리 추천 정확도 조회")
-            .WithDescription(
-                "최근 N주(weeks) 기준으로 사용자 확정 데이터(IsCorrect)의 주별 정확도 추이를 반환합니다.\n\n"
-                + "요청 예시: /api/ai/accuracy/weekly?weeks=8\n\n"
-                + "성공 응답 예시(200):\n"
-                + "{\n"
-                + "  \"weeks\": 8,\n"
-                + "  \"items\": [\n"
-                + "    { \"weekStart\": \"2026-01-05\", \"weekEnd\": \"2026-01-11\", \"confirmedCount\": 20, \"correctCount\": 15, \"accuracy\": 0.75 }\n"
-                + "  ]\n"
-                + "}")
+            .WithDescription(AiEndpointDescriptions.AccuracyWeekly)
             .Produces<AiAccuracyWeeklyResult>(StatusCodes.Status200OK)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest);
 
         app.MapGet("/api/ai/accuracy/monthly", GetAiAccuracyMonthly)
             .WithName("GetAiAccuracyMonthly")
             .WithSummary("AI 월별 카테고리 추천 정확도 조회")
-            .WithDescription(
-                "최근 N개월(months) 기준으로 사용자 확정 데이터(IsCorrect)의 월별 정확도 추이를 반환합니다.\n\n"
-                + "요청 예시: /api/ai/accuracy/monthly?months=6\n\n"
-                + "성공 응답 예시(200):\n"
-                + "{\n"
-                + "  \"months\": 6,\n"
-                + "  \"items\": [\n"
-                + "    { \"month\": \"2026-01\", \"confirmedCount\": 42, \"correctCount\": 31, \"accuracy\": 0.7381 }\n"
-                + "  ]\n"
-                + "}")
+            .WithDescription(AiEndpointDescriptions.AccuracyMonthly)
             .Produces<AiAccuracyMonthlyResult>(StatusCodes.Status200OK)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest);
     }

@@ -1,4 +1,5 @@
 using App.Features.AI.Data;
+using App.Features.AI.Models;
 using App.Features.AI.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.SemanticKernel;
@@ -77,6 +78,14 @@ public static class AiEndpoints
             .WithSummary("중간발표용 AI API 시연 체크리스트 조회")
             .WithDescription(AiEndpointDescriptions.DemoChecklist)
             .Produces<AiDemoChecklistResult>(StatusCodes.Status200OK);
+
+        app.MapPost("/api/ai/demo/seed", SeedAiDemoData)
+            .WithName("SeedAiDemoData")
+            .WithSummary("중간발표용 AI 샘플 데이터 생성")
+            .WithDescription(AiEndpointDescriptions.DemoSeed)
+            .Produces<AiDemoSeedResult>(StatusCodes.Status200OK)
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
     }
 
     private static async Task<Results<Ok<SuggestCategoryResult>, ValidationProblem, ProblemHttpResult>> SuggestCategory(
@@ -297,5 +306,82 @@ public static class AiEndpoints
         };
 
         return TypedResults.Ok(new AiDemoChecklistResult(steps));
+    }
+
+    private static async Task<Results<Ok<AiDemoSeedResult>, ValidationProblem, ProblemHttpResult>> SeedAiDemoData(
+        int? total,
+        int? confirmed,
+        AppDbContext db,
+        ILogger<Program> logger)
+    {
+        var totalCount = total ?? 30;
+        if (totalCount < 1 || totalCount > 500)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(total)] = ["total은 1 이상 500 이하여야 합니다."]
+            });
+        }
+
+        var confirmedCount = confirmed ?? (int)Math.Round(totalCount * 0.67);
+        if (confirmedCount < 0 || confirmedCount > totalCount)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(confirmed)] = ["confirmed는 0 이상 total 이하여야 합니다."]
+            });
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var logs = new List<AiInferenceLog>(capacity: totalCount);
+        var correctCount = 0;
+
+        for (var i = 0; i < totalCount; i++)
+        {
+            var suggestedCategory = AiCategoryCatalog.Options[i % AiCategoryCatalog.Options.Length];
+            var isConfirmed = i < confirmedCount;
+            var isCorrect = isConfirmed ? i % 4 != 0 : (bool?)null;
+            var finalCategory = isConfirmed
+                ? (isCorrect == true
+                    ? suggestedCategory
+                    : AiCategoryCatalog.Options[(i + 1) % AiCategoryCatalog.Options.Length])
+                : null;
+
+            if (isCorrect == true)
+            {
+                correctCount++;
+            }
+
+            var createdAt = now.AddMinutes(-(totalCount - i));
+            logs.Add(new AiInferenceLog
+            {
+                ReceiptId = Guid.NewGuid(),
+                SuggestedCategory = suggestedCategory,
+                Confidence = Math.Round(Math.Clamp(0.55 + (i % 40) * 0.01, 0d, 1d), 4),
+                FinalCategory = finalCategory,
+                IsCorrect = isCorrect,
+                CreatedAt = createdAt,
+                UpdatedAt = isConfirmed ? createdAt.AddMinutes(1) : null
+            });
+        }
+
+        try
+        {
+            await db.AiInferenceLogs.AddRangeAsync(logs);
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "demo-seed 처리 실패. total={Total}, confirmed={Confirmed}", totalCount, confirmedCount);
+            return TypedResults.Problem(
+                detail: "샘플 데이터 저장 중 오류가 발생했습니다.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+
+        var pendingCount = totalCount - confirmedCount;
+        logger.LogInformation("demo-seed 완료. inserted={Inserted}, confirmed={Confirmed}, correct={Correct}, pending={Pending}",
+            totalCount, confirmedCount, correctCount, pendingCount);
+
+        return TypedResults.Ok(new AiDemoSeedResult(totalCount, confirmedCount, correctCount, pendingCount));
     }
 }

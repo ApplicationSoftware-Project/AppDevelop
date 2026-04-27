@@ -159,4 +159,22 @@ public static class AiEndpointDescriptions
 
         각 단계에는 목적, 요청 예시(JSON), 응답 예시(JSON)가 포함됩니다.
         """;
+
+    public const string DemoSeed = """
+        중간발표 시연을 위해 AI 추론 로그 샘플 데이터를 일괄 생성합니다.
+
+        요청 예시: /api/ai/demo/seed?total=30&confirmed=20
+
+        파라미터:
+        - total: 생성할 전체 로그 수(기본값 30, 1~500)
+        - confirmed: 사용자 확정 로그 수(기본값 total의 약 2/3, 0~total)
+
+        성공 응답 예시(200):
+        {
+          "insertedCount": 30,
+          "confirmedCount": 20,
+          "correctCount": 15,
+          "pendingCount": 10
+        }
+        """;
 }

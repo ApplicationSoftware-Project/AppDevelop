@@ -1,6 +1,8 @@
 using Microsoft.SemanticKernel;
 using Microsoft.EntityFrameworkCore;
 using App.Features.AI;
+using App.Features.Gateway;
+using App.Features.Health;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,11 +46,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.MapHealthEndpoints();
 app.MapAiEndpoints();
-
-//GateWay 실행
-
-// 모든 API 요청을 설정된 마이크로서비스(Auth, Receipt 등)로 전달
-app.MapReverseProxy();
+app.MapGatewayEndpoints();
 
 app.Run();

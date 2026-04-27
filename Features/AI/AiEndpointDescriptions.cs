@@ -146,4 +146,14 @@ public static class AiEndpointDescriptions
           }
         }
         """;
+
+    public const string DemoChecklist = """
+        중간발표 시연에서 사용할 AI API 호출 순서를 제공합니다.
+
+        권장 순서:
+        1) Health 점검
+        2) AI 카테고리 추천(suggest-category)
+        3) 사용자 확정(confirm-category)
+        4) 정확도/요약 조회(accuracy, dashboard)
+        """;
 }

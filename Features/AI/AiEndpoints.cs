@@ -71,6 +71,12 @@ public static class AiEndpoints
             .WithDescription(AiEndpointDescriptions.DashboardSummary)
             .Produces<AiDashboardSummaryResult>(StatusCodes.Status200OK)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest);
+
+        app.MapGet("/api/ai/demo/checklist", GetAiDemoChecklist)
+            .WithName("GetAiDemoChecklist")
+            .WithSummary("중간발표용 AI API 시연 체크리스트 조회")
+            .WithDescription(AiEndpointDescriptions.DemoChecklist)
+            .Produces<AiDemoChecklistResult>(StatusCodes.Status200OK);
     }
 
     private static async Task<Results<Ok<SuggestCategoryResult>, ValidationProblem, ProblemHttpResult>> SuggestCategory(
@@ -242,5 +248,42 @@ public static class AiEndpoints
 
         var result = await dashboardService.GetSummaryAsync(effectiveRecentLimit, db, accuracyService, logQueryService);
         return TypedResults.Ok(result);
+    }
+
+    private static Ok<AiDemoChecklistResult> GetAiDemoChecklist()
+    {
+        var steps = new List<AiDemoChecklistStep>
+        {
+            new(
+                1,
+                "Gateway/AI 상태 점검",
+                "GET",
+                "/api/health/ai",
+                "AI 오케스트레이터 준비 상태를 확인합니다.",
+                null),
+            new(
+                2,
+                "AI 카테고리 추천",
+                "POST",
+                "/api/ai/suggest-category",
+                "OCR 텍스트 기반으로 AI 추천 카테고리를 생성하고 로그를 저장합니다.",
+                "{ \"receiptId\": \"11111111-1111-1111-1111-111111111111\", \"ocrText\": \"스타벅스 아메리카노 4500원\" }"),
+            new(
+                3,
+                "사용자 카테고리 확정",
+                "POST",
+                "/api/ai/confirm-category",
+                "AI 추천 결과를 사용자 확정값으로 저장해 피드백 데이터를 누적합니다.",
+                "{ \"logId\": \"(2번 응답의 logId)\", \"finalCategory\": \"식비\" }"),
+            new(
+                4,
+                "대시보드 요약 확인",
+                "GET",
+                "/api/ai/dashboard/summary?recentLimit=10",
+                "정확도/대기건수/최근로그를 한번에 확인해 중간발표 결과를 요약합니다.",
+                null)
+        };
+
+        return TypedResults.Ok(new AiDemoChecklistResult(steps));
     }
 }

@@ -29,3 +29,11 @@ public sealed record AiDashboardSummaryResult(
     AiAccuracyResult Accuracy,
     int PendingFeedbackCount,
     AiRecentLogsResult RecentLogs);
+public sealed record AiDemoChecklistResult(IReadOnlyList<AiDemoChecklistStep> Steps);
+public sealed record AiDemoChecklistStep(
+    int Order,
+    string Name,
+    string Method,
+    string Path,
+    string Purpose,
+    string? ExampleRequestJson);

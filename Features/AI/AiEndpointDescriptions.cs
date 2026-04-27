@@ -94,6 +94,8 @@ public static class AiEndpointDescriptions
     public const string RecentLogs = """
         최근 AI 추론 로그를 최신순으로 조회합니다.
 
+        limit 미입력 시 기본값 20이 적용됩니다.
+
         요청 예시: /api/ai/logs/recent?limit=20
 
         성공 응답 예시(200):
@@ -121,6 +123,8 @@ public static class AiEndpointDescriptions
         - 전체 정확도(누적)
         - 사용자 확정 대기 건수(pending)
         - 최근 AI 추론 로그(recentLimit 기준)
+
+        recentLimit 미입력 시 기본값 10이 적용됩니다.
 
         요청 예시: /api/ai/dashboard/summary?recentLimit=10
 

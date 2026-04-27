@@ -207,9 +207,11 @@ public static class AiEndpoints
         return TypedResults.Ok(result);
     }
 
-    private static async Task<Results<Ok<AiRecentLogsResult>, ValidationProblem>> GetAiRecentLogs(int limit, AppDbContext db, AiLogQueryService logQueryService)
+    private static async Task<Results<Ok<AiRecentLogsResult>, ValidationProblem>> GetAiRecentLogs(int? limit, AppDbContext db, AiLogQueryService logQueryService)
     {
-        if (limit < 1 || limit > 200)
+        var effectiveLimit = limit ?? 20;
+
+        if (effectiveLimit < 1 || effectiveLimit > 200)
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -217,18 +219,20 @@ public static class AiEndpoints
             });
         }
 
-        var result = await logQueryService.GetRecentLogsAsync(limit, db);
+        var result = await logQueryService.GetRecentLogsAsync(effectiveLimit, db);
         return TypedResults.Ok(result);
     }
 
     private static async Task<Results<Ok<AiDashboardSummaryResult>, ValidationProblem>> GetAiDashboardSummary(
-        int recentLimit,
+        int? recentLimit,
         AppDbContext db,
         AiAccuracyService accuracyService,
         AiLogQueryService logQueryService,
         AiDashboardService dashboardService)
     {
-        if (recentLimit < 1 || recentLimit > 50)
+        var effectiveRecentLimit = recentLimit ?? 10;
+
+        if (effectiveRecentLimit < 1 || effectiveRecentLimit > 50)
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -236,7 +240,7 @@ public static class AiEndpoints
             });
         }
 
-        var result = await dashboardService.GetSummaryAsync(recentLimit, db, accuracyService, logQueryService);
+        var result = await dashboardService.GetSummaryAsync(effectiveRecentLimit, db, accuracyService, logQueryService);
         return TypedResults.Ok(result);
     }
 }

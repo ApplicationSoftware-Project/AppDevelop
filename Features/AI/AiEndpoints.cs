@@ -285,7 +285,15 @@ public static class AiEndpoints
                 "/api/ai/dashboard/summary?recentLimit=10",
                 "정확도/대기건수/최근로그를 한번에 확인해 중간발표 결과를 요약합니다.",
                 null,
-                "{ \"generatedAt\": \"2026-01-10T01:40:00+00:00\", \"statusMessage\": \"AI 추론 데이터가 존재합니다. 최근 로그와 정확도 지표를 확인하세요.\", \"hasInferenceData\": true, \"accuracy\": { \"totalCount\": 120, \"confirmedCount\": 80, \"correctCount\": 61, \"accuracy\": 0.7625 }, \"pendingFeedbackCount\": 40, \"recentLogs\": { \"count\": 2, \"items\": [] } }")
+                "{ \"generatedAt\": \"2026-01-10T01:40:00+00:00\", \"statusMessage\": \"AI 추론 데이터가 존재합니다. 최근 로그와 정확도 지표를 확인하세요.\", \"hasInferenceData\": true, \"accuracy\": { \"totalCount\": 120, \"confirmedCount\": 80, \"correctCount\": 61, \"accuracy\": 0.7625 }, \"pendingFeedbackCount\": 40, \"recentLogs\": { \"count\": 2, \"items\": [] } }"),
+            new(
+                5,
+                "검증 실패 응답 확인",
+                "POST",
+                "/api/ai/confirm-category",
+                "잘못된 카테고리를 전송해 ValidationProblem(400) 응답을 확인합니다.",
+                "{ \"logId\": \"(2번 응답의 logId)\", \"finalCategory\": \"잘못된카테고리\" }",
+                "{ \"errors\": { \"finalCategory\": [\"finalCategory는 [식비, 카페, 교통, 쇼핑, 생활, 기타] 중 하나여야 합니다.\"] } }")
         };
 
         return TypedResults.Ok(new AiDemoChecklistResult(steps));

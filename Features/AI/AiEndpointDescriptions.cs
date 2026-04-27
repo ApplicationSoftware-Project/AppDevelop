@@ -155,6 +155,7 @@ public static class AiEndpointDescriptions
         2) AI 카테고리 추천(suggest-category)
         3) 사용자 확정(confirm-category)
         4) 정확도/요약 조회(accuracy, dashboard)
+        5) 예외/검증 실패 응답 확인(validation)
 
         각 단계에는 목적, 요청 예시(JSON), 응답 예시(JSON)가 포함됩니다.
         """;

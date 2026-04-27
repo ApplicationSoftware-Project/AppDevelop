@@ -131,6 +131,8 @@ public static class AiEndpointDescriptions
         성공 응답 예시(200):
         {
           "generatedAt": "2026-01-10T01:40:00+00:00",
+          "statusMessage": "AI 추론 데이터가 존재합니다. 최근 로그와 정확도 지표를 확인하세요.",
+          "hasInferenceData": true,
           "accuracy": {
             "totalCount": 120,
             "confirmedCount": 80,

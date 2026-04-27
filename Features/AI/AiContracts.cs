@@ -24,6 +24,8 @@ public sealed record AiRecentLogItem(
     DateTimeOffset? UpdatedAt);
 public sealed record AiDashboardSummaryResult(
     DateTimeOffset GeneratedAt,
+    string StatusMessage,
+    bool HasInferenceData,
     AiAccuracyResult Accuracy,
     int PendingFeedbackCount,
     AiRecentLogsResult RecentLogs);

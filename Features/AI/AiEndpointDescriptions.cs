@@ -90,4 +90,27 @@ public static class AiEndpointDescriptions
           ]
         }
         """;
+
+    public const string RecentLogs = """
+        최근 AI 추론 로그를 최신순으로 조회합니다.
+
+        요청 예시: /api/ai/logs/recent?limit=20
+
+        성공 응답 예시(200):
+        {
+          "count": 2,
+          "items": [
+            {
+              "logId": "22222222-2222-2222-2222-222222222222",
+              "receiptId": "11111111-1111-1111-1111-111111111111",
+              "suggestedCategory": "카페",
+              "confidence": 0.93,
+              "finalCategory": "식비",
+              "isCorrect": false,
+              "createdAt": "2026-01-10T01:23:45+00:00",
+              "updatedAt": "2026-01-10T01:30:00+00:00"
+            }
+          ]
+        }
+        """;
 }

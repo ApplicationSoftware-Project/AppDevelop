@@ -57,6 +57,13 @@ public static class AiEndpoints
             .WithDescription(AiEndpointDescriptions.AccuracyMonthly)
             .Produces<AiAccuracyMonthlyResult>(StatusCodes.Status200OK)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest);
+
+        app.MapGet("/api/ai/logs/recent", GetAiRecentLogs)
+            .WithName("GetAiRecentLogs")
+            .WithSummary("최근 AI 추론 로그 조회")
+            .WithDescription(AiEndpointDescriptions.RecentLogs)
+            .Produces<AiRecentLogsResult>(StatusCodes.Status200OK)
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest);
     }
 
     private static async Task<Results<Ok<SuggestCategoryResult>, ValidationProblem, ProblemHttpResult>> SuggestCategory(
@@ -190,6 +197,20 @@ public static class AiEndpoints
         }
 
         var result = await accuracyService.GetMonthlyAsync(months, db);
+        return TypedResults.Ok(result);
+    }
+
+    private static async Task<Results<Ok<AiRecentLogsResult>, ValidationProblem>> GetAiRecentLogs(int limit, AppDbContext db, AiLogQueryService logQueryService)
+    {
+        if (limit < 1 || limit > 200)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(limit)] = ["limit은 1 이상 200 이하여야 합니다."]
+            });
+        }
+
+        var result = await logQueryService.GetRecentLogsAsync(limit, db);
         return TypedResults.Ok(result);
     }
 }

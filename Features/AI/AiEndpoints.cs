@@ -77,13 +77,6 @@ public static class AiEndpoints
             .WithSummary("중간발표용 AI API 시연 체크리스트 조회")
             .WithDescription(AiEndpointDescriptions.DemoChecklist)
             .Produces<AiDemoChecklistResult>(StatusCodes.Status200OK);
-
-        app.MapGet("/api/ai/feedback/pending", GetAiPendingFeedback)
-            .WithName("GetAiPendingFeedback")
-            .WithSummary("AI 사용자 확정 대기 로그 조회")
-            .WithDescription(AiEndpointDescriptions.PendingFeedback)
-            .Produces<AiPendingFeedbackResult>(StatusCodes.Status200OK)
-            .ProducesValidationProblem(StatusCodes.Status400BadRequest);
     }
 
     private static async Task<Results<Ok<SuggestCategoryResult>, ValidationProblem, ProblemHttpResult>> SuggestCategory(
@@ -296,23 +289,5 @@ public static class AiEndpoints
         };
 
         return TypedResults.Ok(new AiDemoChecklistResult(steps));
-    }
-
-    private static async Task<Results<Ok<AiPendingFeedbackResult>, ValidationProblem>> GetAiPendingFeedback(
-        int? limit,
-        AppDbContext db,
-        AiPendingFeedbackService pendingFeedbackService)
-    {
-        var effectiveLimit = limit ?? 20;
-        if (effectiveLimit < 1 || effectiveLimit > 200)
-        {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
-            {
-                [nameof(limit)] = ["limit은 1 이상 200 이하여야 합니다."]
-            });
-        }
-
-        var result = await pendingFeedbackService.GetPendingAsync(effectiveLimit, db);
-        return TypedResults.Ok(result);
     }
 }

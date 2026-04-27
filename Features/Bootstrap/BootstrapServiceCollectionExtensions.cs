@@ -31,7 +31,6 @@ public static class BootstrapServiceCollectionExtensions
         services.AddScoped<AiConfirmationService>();
         services.AddScoped<AiLogQueryService>();
         services.AddScoped<AiDashboardService>();
-        services.AddScoped<AiPendingFeedbackService>();
 
         return services;
     }

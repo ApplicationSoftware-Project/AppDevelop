@@ -128,22 +128,11 @@ public static class AiEndpoints
         AppDbContext db,
         ILogger<Program> logger)
     {
-        if (request.ReceiptId == Guid.Empty)
+        var suggestValidation = AiValidationService.ValidateSuggestCategoryRequest(request);
+        if (suggestValidation is not null)
         {
-            logger.LogWarning("suggest-category 요청 거부: receiptId가 비어 있음");
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
-            {
-                [nameof(request.ReceiptId)] = ["receiptId는 비어 있을 수 없습니다."]
-            });
-        }
-
-        if (string.IsNullOrWhiteSpace(request.OcrText))
-        {
-            logger.LogWarning("suggest-category 요청 거부: ocrText가 비어 있음");
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
-            {
-                [nameof(request.OcrText)] = ["ocrText는 비어 있을 수 없습니다."]
-            });
+            logger.LogWarning("suggest-category 요청 거부: Validation 실패");
+            return TypedResults.ValidationProblem(suggestValidation);
         }
 
         var promptTemplate = AiPromptTemplates.SuggestCategory
@@ -240,20 +229,14 @@ public static class AiEndpoints
             });
         }
 
-        var finalCategory = request.FinalCategory.Trim();
-        if (finalCategory.Length > 200)
+        var validation = AiValidationService.ValidateAndNormalizeConfirmCategoryRequest(request);
+        if (validation.Errors is not null)
         {
-            finalCategory = finalCategory[..200];
+            logger.LogWarning("confirm-category 요청 거부: Validation 실패");
+            return TypedResults.ValidationProblem(validation.Errors);
         }
 
-        if (!AiCategoryCatalog.Options.Contains(finalCategory, StringComparer.OrdinalIgnoreCase))
-        {
-            logger.LogWarning("confirm-category 요청 거부: 허용되지 않은 finalCategory. value={FinalCategory}", finalCategory);
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
-            {
-                [nameof(request.FinalCategory)] = [$"finalCategory는 [{AiCategoryCatalog.OptionsText}] 중 하나여야 합니다."]
-            });
-        }
+        var finalCategory = validation.NormalizedFinalCategory!;
 
         var log = await db.AiInferenceLogs.FindAsync(request.LogId);
         if (log is null)

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using App.Features.AI.Data;
 using App.Features.AI.Models;
+using App.Features.AI.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
@@ -287,24 +288,13 @@ public static class AiEndpoints
         }
     }
 
-    private static async Task<Ok<AiAccuracyResult>> GetAiAccuracy(AppDbContext db)
+    private static async Task<Ok<AiAccuracyResult>> GetAiAccuracy(AppDbContext db, AiAccuracyService accuracyService)
     {
-        var totalCount = await db.AiInferenceLogs.CountAsync();
-        var confirmedCount = await db.AiInferenceLogs.CountAsync(x => x.IsCorrect.HasValue);
-        var correctCount = await db.AiInferenceLogs.CountAsync(x => x.IsCorrect == true);
-
-        var accuracy = confirmedCount == 0
-            ? 0d
-            : Math.Round((double)correctCount / confirmedCount, 4);
-
-        return TypedResults.Ok(new AiAccuracyResult(
-            totalCount,
-            confirmedCount,
-            correctCount,
-            accuracy));
+        var result = await accuracyService.GetOverallAsync(db);
+        return TypedResults.Ok(result);
     }
 
-    private static async Task<Results<Ok<AiAccuracyDailyResult>, ValidationProblem>> GetAiAccuracyDaily(int days, AppDbContext db)
+    private static async Task<Results<Ok<AiAccuracyDailyResult>, ValidationProblem>> GetAiAccuracyDaily(int days, AppDbContext db, AiAccuracyService accuracyService)
     {
         if (days < 1 || days > 365)
         {
@@ -314,45 +304,11 @@ public static class AiEndpoints
             });
         }
 
-        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-(days - 1)));
-        var startUtc = startDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-        var endUtcExclusive = startUtc.AddDays(days);
-
-        var dailyGrouped = await db.AiInferenceLogs
-            .Where(x => x.IsCorrect.HasValue && x.CreatedAt >= startUtc && x.CreatedAt < endUtcExclusive)
-            .GroupBy(x => EF.Functions.DateDiffDay(startUtc, x.CreatedAt))
-            .Select(g => new
-            {
-                DayOffset = g.Key,
-                ConfirmedCount = g.Count(),
-                CorrectCount = g.Sum(x => x.IsCorrect == true ? 1 : 0)
-            })
-            .ToDictionaryAsync(x => x.DayOffset);
-
-        var dailyStats = Enumerable.Range(0, days)
-            .Select(offset =>
-            {
-                var date = startDate.AddDays(offset);
-                dailyGrouped.TryGetValue(offset, out var grouped);
-
-                var confirmedCount = grouped?.ConfirmedCount ?? 0;
-                var correctCount = grouped?.CorrectCount ?? 0;
-                var accuracy = confirmedCount == 0
-                    ? 0d
-                    : Math.Round((double)correctCount / confirmedCount, 4);
-
-                return new AiAccuracyDailyItem(
-                    date.ToString("yyyy-MM-dd"),
-                    confirmedCount,
-                    correctCount,
-                    accuracy);
-            })
-            .ToList();
-
-        return TypedResults.Ok(new AiAccuracyDailyResult(days, dailyStats));
+        var result = await accuracyService.GetDailyAsync(days, db);
+        return TypedResults.Ok(result);
     }
 
-    private static async Task<Results<Ok<AiAccuracyWeeklyResult>, ValidationProblem>> GetAiAccuracyWeekly(int weeks, AppDbContext db)
+    private static async Task<Results<Ok<AiAccuracyWeeklyResult>, ValidationProblem>> GetAiAccuracyWeekly(int weeks, AppDbContext db, AiAccuracyService accuracyService)
     {
         if (weeks < 1 || weeks > 104)
         {
@@ -362,55 +318,11 @@ public static class AiEndpoints
             });
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
-        var currentWeekStart = GetWeekStart(today);
-        var startWeek = currentWeekStart.AddDays(-(weeks - 1) * 7);
-        var startUtc = startWeek.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-        var endUtcExclusive = startUtc.AddDays(weeks * 7);
-
-        var dailyGrouped = await db.AiInferenceLogs
-            .Where(x => x.IsCorrect.HasValue && x.CreatedAt >= startUtc && x.CreatedAt < endUtcExclusive)
-            .GroupBy(x => EF.Functions.DateDiffDay(startUtc, x.CreatedAt))
-            .Select(g => new
-            {
-                DayOffset = g.Key,
-                ConfirmedCount = g.Count(),
-                CorrectCount = g.Sum(x => x.IsCorrect == true ? 1 : 0)
-            })
-            .ToDictionaryAsync(x => x.DayOffset);
-
-        var weeklyStats = Enumerable.Range(0, weeks)
-            .Select(offset => new
-            {
-                Offset = offset,
-                WeekStart = startWeek.AddDays(offset * 7)
-            })
-            .Select(x =>
-            {
-                var weekStart = x.WeekStart;
-                var weekEnd = weekStart.AddDays(6);
-                var weekOffset = x.Offset * 7;
-                var confirmedCount = Enumerable.Range(0, 7)
-                    .Sum(day => dailyGrouped.TryGetValue(weekOffset + day, out var grouped) ? grouped.ConfirmedCount : 0);
-                var correctCount = Enumerable.Range(0, 7)
-                    .Sum(day => dailyGrouped.TryGetValue(weekOffset + day, out var grouped) ? grouped.CorrectCount : 0);
-                var accuracy = confirmedCount == 0
-                    ? 0d
-                    : Math.Round((double)correctCount / confirmedCount, 4);
-
-                return new AiAccuracyWeeklyItem(
-                    weekStart.ToString("yyyy-MM-dd"),
-                    weekEnd.ToString("yyyy-MM-dd"),
-                    confirmedCount,
-                    correctCount,
-                    accuracy);
-            })
-            .ToList();
-
-        return TypedResults.Ok(new AiAccuracyWeeklyResult(weeks, weeklyStats));
+        var result = await accuracyService.GetWeeklyAsync(weeks, db);
+        return TypedResults.Ok(result);
     }
 
-    private static async Task<Results<Ok<AiAccuracyMonthlyResult>, ValidationProblem>> GetAiAccuracyMonthly(int months, AppDbContext db)
+    private static async Task<Results<Ok<AiAccuracyMonthlyResult>, ValidationProblem>> GetAiAccuracyMonthly(int months, AppDbContext db, AiAccuracyService accuracyService)
     {
         if (months < 1 || months > 36)
         {
@@ -420,48 +332,7 @@ public static class AiEndpoints
             });
         }
 
-        var currentMonthStart = new DateOnly(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
-        var startMonth = currentMonthStart.AddMonths(-(months - 1));
-        var startUtc = startMonth.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-        var endUtcExclusive = startUtc.AddMonths(months);
-
-        var monthlyGrouped = await db.AiInferenceLogs
-            .Where(x => x.IsCorrect.HasValue && x.CreatedAt >= startUtc && x.CreatedAt < endUtcExclusive)
-            .GroupBy(x => new { x.CreatedAt.Year, x.CreatedAt.Month })
-            .Select(g => new
-            {
-                g.Key.Year,
-                g.Key.Month,
-                ConfirmedCount = g.Count(),
-                CorrectCount = g.Sum(x => x.IsCorrect == true ? 1 : 0)
-            })
-            .ToDictionaryAsync(x => (x.Year, x.Month));
-
-        var monthlyStats = Enumerable.Range(0, months)
-            .Select(offset => startMonth.AddMonths(offset))
-            .Select(monthStart =>
-            {
-                monthlyGrouped.TryGetValue((monthStart.Year, monthStart.Month), out var grouped);
-                var confirmedCount = grouped?.ConfirmedCount ?? 0;
-                var correctCount = grouped?.CorrectCount ?? 0;
-                var accuracy = confirmedCount == 0
-                    ? 0d
-                    : Math.Round((double)correctCount / confirmedCount, 4);
-
-                return new AiAccuracyMonthlyItem(
-                    monthStart.ToString("yyyy-MM"),
-                    confirmedCount,
-                    correctCount,
-                    accuracy);
-            })
-            .ToList();
-
-        return TypedResults.Ok(new AiAccuracyMonthlyResult(months, monthlyStats));
-    }
-
-    private static DateOnly GetWeekStart(DateOnly date)
-    {
-        var diff = ((int)date.DayOfWeek + 6) % 7;
-        return date.AddDays(-diff);
+        var result = await accuracyService.GetMonthlyAsync(months, db);
+        return TypedResults.Ok(result);
     }
 }

@@ -1,4 +1,5 @@
 using App.Features.AI.Data;
+using App.Features.AI.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
 
@@ -24,6 +25,8 @@ public static class BootstrapServiceCollectionExtensions
 
         var kernel = kernelBuilder.Build();
         services.AddSingleton(kernel);
+
+        services.AddScoped<AiAccuracyService>();
 
         return services;
     }

@@ -38,3 +38,10 @@ public sealed record AiDemoChecklistStep(
     string Purpose,
     string? ExampleRequestJson,
     string? ExampleResponseJson);
+public sealed record AiPendingFeedbackResult(int Count, IReadOnlyList<AiPendingFeedbackItem> Items);
+public sealed record AiPendingFeedbackItem(
+    Guid LogId,
+    Guid ReceiptId,
+    string SuggestedCategory,
+    double Confidence,
+    DateTimeOffset CreatedAt);

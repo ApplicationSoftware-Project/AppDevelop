@@ -158,4 +158,26 @@ public static class AiEndpointDescriptions
 
         각 단계에는 목적, 요청 예시(JSON), 응답 예시(JSON)가 포함됩니다.
         """;
+
+    public const string PendingFeedback = """
+        사용자 확정(피드백)이 아직 입력되지 않은 AI 추론 로그를 최신순으로 조회합니다.
+
+        limit 미입력 시 기본값 20이 적용됩니다.
+
+        요청 예시: /api/ai/feedback/pending?limit=20
+
+        성공 응답 예시(200):
+        {
+          "count": 2,
+          "items": [
+            {
+              "logId": "22222222-2222-2222-2222-222222222222",
+              "receiptId": "11111111-1111-1111-1111-111111111111",
+              "suggestedCategory": "카페",
+              "confidence": 0.93,
+              "createdAt": "2026-01-10T01:23:45+00:00"
+            }
+          ]
+        }
+        """;
 }

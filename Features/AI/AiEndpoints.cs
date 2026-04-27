@@ -260,28 +260,32 @@ public static class AiEndpoints
                 "GET",
                 "/api/health/ai",
                 "AI 오케스트레이터 준비 상태를 확인합니다.",
-                null),
+                null,
+                "{ \"service\": \"AI Orchestrator\", \"status\": \"Ready\", \"utcNow\": \"2026-01-10T01:40:00+00:00\" }"),
             new(
                 2,
                 "AI 카테고리 추천",
                 "POST",
                 "/api/ai/suggest-category",
                 "OCR 텍스트 기반으로 AI 추천 카테고리를 생성하고 로그를 저장합니다.",
-                "{ \"receiptId\": \"11111111-1111-1111-1111-111111111111\", \"ocrText\": \"스타벅스 아메리카노 4500원\" }"),
+                "{ \"receiptId\": \"11111111-1111-1111-1111-111111111111\", \"ocrText\": \"스타벅스 아메리카노 4500원\" }",
+                "{ \"logId\": \"22222222-2222-2222-2222-222222222222\", \"category\": \"카페\", \"confidence\": 0.93 }"),
             new(
                 3,
                 "사용자 카테고리 확정",
                 "POST",
                 "/api/ai/confirm-category",
                 "AI 추천 결과를 사용자 확정값으로 저장해 피드백 데이터를 누적합니다.",
-                "{ \"logId\": \"(2번 응답의 logId)\", \"finalCategory\": \"식비\" }"),
+                "{ \"logId\": \"(2번 응답의 logId)\", \"finalCategory\": \"식비\" }",
+                "{ \"logId\": \"22222222-2222-2222-2222-222222222222\", \"suggestedCategory\": \"카페\", \"finalCategory\": \"식비\", \"isCorrect\": false }"),
             new(
                 4,
                 "대시보드 요약 확인",
                 "GET",
                 "/api/ai/dashboard/summary?recentLimit=10",
                 "정확도/대기건수/최근로그를 한번에 확인해 중간발표 결과를 요약합니다.",
-                null)
+                null,
+                "{ \"generatedAt\": \"2026-01-10T01:40:00+00:00\", \"statusMessage\": \"AI 추론 데이터가 존재합니다. 최근 로그와 정확도 지표를 확인하세요.\", \"hasInferenceData\": true, \"accuracy\": { \"totalCount\": 120, \"confirmedCount\": 80, \"correctCount\": 61, \"accuracy\": 0.7625 }, \"pendingFeedbackCount\": 40, \"recentLogs\": { \"count\": 2, \"items\": [] } }")
         };
 
         return TypedResults.Ok(new AiDemoChecklistResult(steps));

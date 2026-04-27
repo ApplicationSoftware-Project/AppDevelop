@@ -36,4 +36,5 @@ public sealed record AiDemoChecklistStep(
     string Method,
     string Path,
     string Purpose,
-    string? ExampleRequestJson);
+    string? ExampleRequestJson,
+    string? ExampleResponseJson);

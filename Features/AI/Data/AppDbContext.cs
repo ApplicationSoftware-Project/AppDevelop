@@ -1,7 +1,7 @@
-using App.Models;
+using App.Features.AI.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace App.Data
+namespace App.Features.AI.Data
 {
     public class AppDbContext : DbContext
     {

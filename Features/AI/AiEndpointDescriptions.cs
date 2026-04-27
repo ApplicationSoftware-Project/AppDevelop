@@ -177,4 +177,15 @@ public static class AiEndpointDescriptions
           "pendingCount": 10
         }
         """;
+
+    public const string DemoReset = """
+        중간발표 시연 데이터를 초기 상태로 되돌리기 위해 AI 추론 로그를 전체 삭제합니다.
+
+        요청 예시: /api/ai/demo/reset
+
+        성공 응답 예시(200):
+        {
+          "deletedCount": 30
+        }
+        """;
 }

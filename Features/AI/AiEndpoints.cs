@@ -2,6 +2,7 @@ using App.Features.AI.Data;
 using App.Features.AI.Models;
 using App.Features.AI.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
 
 namespace App.Features.AI;
@@ -85,6 +86,13 @@ public static class AiEndpoints
             .WithDescription(AiEndpointDescriptions.DemoSeed)
             .Produces<AiDemoSeedResult>(StatusCodes.Status200OK)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
+
+        app.MapPost("/api/ai/demo/reset", ResetAiDemoData)
+            .WithName("ResetAiDemoData")
+            .WithSummary("중간발표용 AI 샘플 데이터 초기화")
+            .WithDescription(AiEndpointDescriptions.DemoReset)
+            .Produces<AiDemoResetResult>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
     }
 
@@ -383,5 +391,24 @@ public static class AiEndpoints
             totalCount, confirmedCount, correctCount, pendingCount);
 
         return TypedResults.Ok(new AiDemoSeedResult(totalCount, confirmedCount, correctCount, pendingCount));
+    }
+
+    private static async Task<Results<Ok<AiDemoResetResult>, ProblemHttpResult>> ResetAiDemoData(
+        AppDbContext db,
+        ILogger<Program> logger)
+    {
+        try
+        {
+            var deletedCount = await db.AiInferenceLogs.ExecuteDeleteAsync();
+            logger.LogInformation("demo-reset 완료. deleted={Deleted}", deletedCount);
+            return TypedResults.Ok(new AiDemoResetResult(deletedCount));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "demo-reset 처리 실패");
+            return TypedResults.Problem(
+                detail: "샘플 데이터 초기화 중 오류가 발생했습니다.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
     }
 }

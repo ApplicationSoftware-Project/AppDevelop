@@ -1,9 +1,6 @@
-using System.Text.Json;
 using App.Features.AI.Data;
-using App.Features.AI.Models;
 using App.Features.AI.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
 
 namespace App.Features.AI;
@@ -66,6 +63,7 @@ public static class AiEndpoints
         SuggestCategoryRequest request,
         Kernel k,
         AppDbContext db,
+        AiSuggestionService suggestionService,
         ILogger<Program> logger)
     {
         var suggestValidation = AiValidationService.ValidateSuggestCategoryRequest(request);
@@ -75,80 +73,26 @@ public static class AiEndpoints
             return TypedResults.ValidationProblem(suggestValidation);
         }
 
-        var promptTemplate = AiPromptTemplates.SuggestCategory
-            .Replace("{CATEGORY_OPTIONS}", AiCategoryCatalog.OptionsText);
-
-        var prompt = promptTemplate + request.OcrText;
-
-        var result = await k.InvokePromptAsync(prompt);
-        var responseText = result.ToString();
-
         try
         {
-            var parsed = JsonSerializer.Deserialize<SuggestCategoryAiResponse>(responseText, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
-
-            if (parsed is null || string.IsNullOrWhiteSpace(parsed.Category))
-            {
-                logger.LogWarning("AI 응답 파싱 실패: category 누락 또는 null. raw={ResponseText}", responseText);
-                return TypedResults.Problem(
-                    detail: "AI 응답을 해석할 수 없습니다.",
-                    statusCode: StatusCodes.Status502BadGateway);
-            }
-
-            var category = parsed.Category.Trim();
-            if (category.Length > 200)
-            {
-                category = category[..200];
-            }
-
-            if (!AiCategoryCatalog.Options.Contains(category, StringComparer.OrdinalIgnoreCase))
-            {
-                logger.LogWarning("AI 추천 카테고리가 허용 목록에 없어 '기타'로 대체합니다. rawCategory={RawCategory}", category);
-                category = "기타";
-            }
-
-            var confidence = Math.Clamp(parsed.Confidence, 0d, 1d);
-
-            var log = new AiInferenceLog
-            {
-                ReceiptId = request.ReceiptId,
-                SuggestedCategory = category,
-                Confidence = confidence
-            };
-
-            db.AiInferenceLogs.Add(log);
-            await db.SaveChangesAsync();
-
-            logger.LogInformation("AI 추천 로그 저장 완료. LogId={LogId}, ReceiptId={ReceiptId}, Category={Category}, Confidence={Confidence}",
-                log.Id, request.ReceiptId, category, confidence);
-
-            return TypedResults.Ok(new SuggestCategoryResult(
-                log.Id,
-                category,
-                confidence));
+            var result = await suggestionService.SuggestCategoryAsync(request, k, db);
+            logger.LogInformation("AI 추천 로그 저장 완료. ReceiptId={ReceiptId}, Category={Category}, Confidence={Confidence}",
+                request.ReceiptId, result.Category, result.Confidence);
+            return TypedResults.Ok(result);
         }
-        catch (DbUpdateException)
+        catch (AiFeatureException ex)
         {
-            logger.LogError("AI 추천 로그 DB 저장 실패. ReceiptId={ReceiptId}", request.ReceiptId);
+            logger.LogWarning("suggest-category 처리 실패. ReceiptId={ReceiptId}, Detail={Detail}", request.ReceiptId, ex.Message);
             return TypedResults.Problem(
-                detail: "AI 추천 로그 저장 중 오류가 발생했습니다.",
-                statusCode: StatusCodes.Status500InternalServerError);
-        }
-        catch (JsonException)
-        {
-            logger.LogWarning("AI 응답 JSON 형식 오류. raw={ResponseText}", responseText);
-            return TypedResults.Problem(
-                detail: "AI 응답 형식이 올바르지 않습니다.",
-                statusCode: StatusCodes.Status502BadGateway);
+                detail: ex.Message,
+                statusCode: ex.StatusCode);
         }
     }
 
     private static async Task<Results<Ok<ConfirmCategoryResult>, ValidationProblem, NotFound, ProblemHttpResult>> ConfirmCategory(
         ConfirmCategoryRequest request,
         AppDbContext db,
+        AiConfirmationService confirmationService,
         ILogger<Program> logger)
     {
         if (request.LogId == Guid.Empty)
@@ -178,36 +122,26 @@ public static class AiEndpoints
 
         var finalCategory = validation.NormalizedFinalCategory!;
 
-        var log = await db.AiInferenceLogs.FindAsync(request.LogId);
-        if (log is null)
-        {
-            logger.LogWarning("confirm-category 대상 로그 없음. LogId={LogId}", request.LogId);
-            return TypedResults.NotFound();
-        }
-
-        log.FinalCategory = finalCategory;
-        log.IsCorrect = string.Equals(log.SuggestedCategory, finalCategory, StringComparison.OrdinalIgnoreCase);
-        log.UpdatedAt = DateTimeOffset.UtcNow;
-
         try
         {
-            await db.SaveChangesAsync();
+            var result = await confirmationService.ConfirmCategoryAsync(request.LogId, finalCategory, db);
+            if (result is null)
+            {
+                logger.LogWarning("confirm-category 대상 로그 없음. LogId={LogId}", request.LogId);
+                return TypedResults.NotFound();
+            }
 
             logger.LogInformation("AI 피드백 저장 완료. LogId={LogId}, Suggested={SuggestedCategory}, Final={FinalCategory}, IsCorrect={IsCorrect}",
-                log.Id, log.SuggestedCategory, log.FinalCategory, log.IsCorrect);
+                result.LogId, result.SuggestedCategory, result.FinalCategory, result.IsCorrect);
 
-            return TypedResults.Ok(new ConfirmCategoryResult(
-                log.Id,
-                log.SuggestedCategory,
-                log.FinalCategory,
-                log.IsCorrect.GetValueOrDefault()));
+            return TypedResults.Ok(result);
         }
-        catch (DbUpdateException)
+        catch (AiFeatureException ex)
         {
-            logger.LogError("AI 피드백 DB 저장 실패. LogId={LogId}", request.LogId);
+            logger.LogError("confirm-category 처리 실패. LogId={LogId}, Detail={Detail}", request.LogId, ex.Message);
             return TypedResults.Problem(
-                detail: "AI 피드백 저장 중 오류가 발생했습니다.",
-                statusCode: StatusCodes.Status500InternalServerError);
+                detail: ex.Message,
+                statusCode: ex.StatusCode);
         }
     }
 

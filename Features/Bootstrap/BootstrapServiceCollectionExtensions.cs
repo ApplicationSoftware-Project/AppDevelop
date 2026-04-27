@@ -27,6 +27,8 @@ public static class BootstrapServiceCollectionExtensions
         services.AddSingleton(kernel);
 
         services.AddScoped<AiAccuracyService>();
+        services.AddScoped<AiSuggestionService>();
+        services.AddScoped<AiConfirmationService>();
 
         return services;
     }

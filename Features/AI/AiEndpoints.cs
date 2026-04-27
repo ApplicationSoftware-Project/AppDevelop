@@ -9,9 +9,6 @@ namespace App.Features.AI;
 
 public static class AiEndpoints
 {
-    private static readonly string[] CategoryOptions = ["식비", "카페", "교통", "쇼핑", "생활", "기타"];
-    private static readonly string CategoryOptionsText = string.Join(", ", CategoryOptions);
-
     public static void MapAiEndpoints(this WebApplication app)
     {
         app.MapPost("/api/ai/suggest-category", SuggestCategory)
@@ -148,16 +145,8 @@ public static class AiEndpoints
             });
         }
 
-        var promptTemplate = """
-            당신은 가계부 정리 전문가입니다. 
-            아래의 영수증 텍스트를 분석하여 [{CATEGORY_OPTIONS}] 중 가장 적절한 카테고리 하나를 추천하세요.
-            응답은 반드시 아래 JSON 형식으로만 하세요.
-            { "category": "카테고리명", "confidence": 0.0~1.0 사이의 숫자 }
-
-            영수증 내용:
-            """;
-
-        promptTemplate = promptTemplate.Replace("{CATEGORY_OPTIONS}", CategoryOptionsText);
+        var promptTemplate = AiPromptTemplates.SuggestCategory
+            .Replace("{CATEGORY_OPTIONS}", AiCategoryCatalog.OptionsText);
 
         var prompt = promptTemplate + request.OcrText;
 
@@ -185,7 +174,7 @@ public static class AiEndpoints
                 category = category[..200];
             }
 
-            if (!CategoryOptions.Contains(category, StringComparer.OrdinalIgnoreCase))
+            if (!AiCategoryCatalog.Options.Contains(category, StringComparer.OrdinalIgnoreCase))
             {
                 logger.LogWarning("AI 추천 카테고리가 허용 목록에 없어 '기타'로 대체합니다. rawCategory={RawCategory}", category);
                 category = "기타";
@@ -256,12 +245,12 @@ public static class AiEndpoints
             finalCategory = finalCategory[..200];
         }
 
-        if (!CategoryOptions.Contains(finalCategory, StringComparer.OrdinalIgnoreCase))
+        if (!AiCategoryCatalog.Options.Contains(finalCategory, StringComparer.OrdinalIgnoreCase))
         {
             logger.LogWarning("confirm-category 요청 거부: 허용되지 않은 finalCategory. value={FinalCategory}", finalCategory);
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             {
-                [nameof(request.FinalCategory)] = [$"finalCategory는 [{CategoryOptionsText}] 중 하나여야 합니다."]
+                [nameof(request.FinalCategory)] = [$"finalCategory는 [{AiCategoryCatalog.OptionsText}] 중 하나여야 합니다."]
             });
         }
 

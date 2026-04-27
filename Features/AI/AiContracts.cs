@@ -22,3 +22,8 @@ public sealed record AiRecentLogItem(
     bool? IsCorrect,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt);
+public sealed record AiDashboardSummaryResult(
+    DateTimeOffset GeneratedAt,
+    AiAccuracyResult Accuracy,
+    int PendingFeedbackCount,
+    AiRecentLogsResult RecentLogs);

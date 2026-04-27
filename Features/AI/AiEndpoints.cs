@@ -64,6 +64,13 @@ public static class AiEndpoints
             .WithDescription(AiEndpointDescriptions.RecentLogs)
             .Produces<AiRecentLogsResult>(StatusCodes.Status200OK)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest);
+
+        app.MapGet("/api/ai/dashboard/summary", GetAiDashboardSummary)
+            .WithName("GetAiDashboardSummary")
+            .WithSummary("AI 대시보드 요약 조회")
+            .WithDescription(AiEndpointDescriptions.DashboardSummary)
+            .Produces<AiDashboardSummaryResult>(StatusCodes.Status200OK)
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest);
     }
 
     private static async Task<Results<Ok<SuggestCategoryResult>, ValidationProblem, ProblemHttpResult>> SuggestCategory(
@@ -211,6 +218,25 @@ public static class AiEndpoints
         }
 
         var result = await logQueryService.GetRecentLogsAsync(limit, db);
+        return TypedResults.Ok(result);
+    }
+
+    private static async Task<Results<Ok<AiDashboardSummaryResult>, ValidationProblem>> GetAiDashboardSummary(
+        int recentLimit,
+        AppDbContext db,
+        AiAccuracyService accuracyService,
+        AiLogQueryService logQueryService,
+        AiDashboardService dashboardService)
+    {
+        if (recentLimit < 1 || recentLimit > 50)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(recentLimit)] = ["recentLimit은 1 이상 50 이하여야 합니다."]
+            });
+        }
+
+        var result = await dashboardService.GetSummaryAsync(recentLimit, db, accuracyService, logQueryService);
         return TypedResults.Ok(result);
     }
 }

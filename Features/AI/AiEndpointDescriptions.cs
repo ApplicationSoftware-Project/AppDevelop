@@ -113,4 +113,31 @@ public static class AiEndpointDescriptions
           ]
         }
         """;
+
+    public const string DashboardSummary = """
+        중간발표 시연을 위한 AI 대시보드 요약 정보를 제공합니다.
+
+        포함 정보:
+        - 전체 정확도(누적)
+        - 사용자 확정 대기 건수(pending)
+        - 최근 AI 추론 로그(recentLimit 기준)
+
+        요청 예시: /api/ai/dashboard/summary?recentLimit=10
+
+        성공 응답 예시(200):
+        {
+          "generatedAt": "2026-01-10T01:40:00+00:00",
+          "accuracy": {
+            "totalCount": 120,
+            "confirmedCount": 80,
+            "correctCount": 61,
+            "accuracy": 0.7625
+          },
+          "pendingFeedbackCount": 40,
+          "recentLogs": {
+            "count": 2,
+            "items": []
+          }
+        }
+        """;
 }

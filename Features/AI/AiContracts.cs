@@ -12,3 +12,29 @@ public sealed record AiAccuracyWeeklyResult(int Weeks, IReadOnlyList<AiAccuracyW
 public sealed record AiAccuracyWeeklyItem(string WeekStart, string WeekEnd, int ConfirmedCount, int CorrectCount, double Accuracy);
 public sealed record AiAccuracyMonthlyResult(int Months, IReadOnlyList<AiAccuracyMonthlyItem> Items);
 public sealed record AiAccuracyMonthlyItem(string Month, int ConfirmedCount, int CorrectCount, double Accuracy);
+public sealed record AiRecentLogsResult(int Count, IReadOnlyList<AiRecentLogItem> Items);
+public sealed record AiRecentLogItem(
+    Guid LogId,
+    Guid ReceiptId,
+    string SuggestedCategory,
+    double Confidence,
+    string? FinalCategory,
+    bool? IsCorrect,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt);
+public sealed record AiDashboardSummaryResult(
+    DateTimeOffset GeneratedAt,
+    string StatusMessage,
+    bool HasInferenceData,
+    AiAccuracyResult Accuracy,
+    int PendingFeedbackCount,
+    AiRecentLogsResult RecentLogs);
+public sealed record AiDemoChecklistResult(IReadOnlyList<AiDemoChecklistStep> Steps);
+public sealed record AiDemoChecklistStep(
+    int Order,
+    string Name,
+    string Method,
+    string Path,
+    string Purpose,
+    string? ExampleRequestJson,
+    string? ExampleResponseJson);

@@ -57,6 +57,26 @@ public static class AiEndpoints
             .WithDescription(AiEndpointDescriptions.AccuracyMonthly)
             .Produces<AiAccuracyMonthlyResult>(StatusCodes.Status200OK)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest);
+
+        app.MapGet("/api/ai/logs/recent", GetAiRecentLogs)
+            .WithName("GetAiRecentLogs")
+            .WithSummary("최근 AI 추론 로그 조회")
+            .WithDescription(AiEndpointDescriptions.RecentLogs)
+            .Produces<AiRecentLogsResult>(StatusCodes.Status200OK)
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest);
+
+        app.MapGet("/api/ai/dashboard/summary", GetAiDashboardSummary)
+            .WithName("GetAiDashboardSummary")
+            .WithSummary("AI 대시보드 요약 조회")
+            .WithDescription(AiEndpointDescriptions.DashboardSummary)
+            .Produces<AiDashboardSummaryResult>(StatusCodes.Status200OK)
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest);
+
+        app.MapGet("/api/ai/demo/checklist", GetAiDemoChecklist)
+            .WithName("GetAiDemoChecklist")
+            .WithSummary("중간발표용 AI API 시연 체크리스트 조회")
+            .WithDescription(AiEndpointDescriptions.DemoChecklist)
+            .Produces<AiDemoChecklistResult>(StatusCodes.Status200OK);
     }
 
     private static async Task<Results<Ok<SuggestCategoryResult>, ValidationProblem, ProblemHttpResult>> SuggestCategory(
@@ -191,5 +211,83 @@ public static class AiEndpoints
 
         var result = await accuracyService.GetMonthlyAsync(months, db);
         return TypedResults.Ok(result);
+    }
+
+    private static async Task<Results<Ok<AiRecentLogsResult>, ValidationProblem>> GetAiRecentLogs(int? limit, AppDbContext db, AiLogQueryService logQueryService)
+    {
+        var effectiveLimit = limit ?? 20;
+
+        if (effectiveLimit < 1 || effectiveLimit > 200)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(limit)] = ["limit은 1 이상 200 이하여야 합니다."]
+            });
+        }
+
+        var result = await logQueryService.GetRecentLogsAsync(effectiveLimit, db);
+        return TypedResults.Ok(result);
+    }
+
+    private static async Task<Results<Ok<AiDashboardSummaryResult>, ValidationProblem>> GetAiDashboardSummary(
+        int? recentLimit,
+        AppDbContext db,
+        AiAccuracyService accuracyService,
+        AiLogQueryService logQueryService,
+        AiDashboardService dashboardService)
+    {
+        var effectiveRecentLimit = recentLimit ?? 10;
+
+        if (effectiveRecentLimit < 1 || effectiveRecentLimit > 50)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(recentLimit)] = ["recentLimit은 1 이상 50 이하여야 합니다."]
+            });
+        }
+
+        var result = await dashboardService.GetSummaryAsync(effectiveRecentLimit, db, accuracyService, logQueryService);
+        return TypedResults.Ok(result);
+    }
+
+    private static Ok<AiDemoChecklistResult> GetAiDemoChecklist()
+    {
+        var steps = new List<AiDemoChecklistStep>
+        {
+            new(
+                1,
+                "Gateway/AI 상태 점검",
+                "GET",
+                "/api/health/ai",
+                "AI 오케스트레이터 준비 상태를 확인합니다.",
+                null,
+                "{ \"service\": \"AI Orchestrator\", \"status\": \"Ready\", \"utcNow\": \"2026-01-10T01:40:00+00:00\" }"),
+            new(
+                2,
+                "AI 카테고리 추천",
+                "POST",
+                "/api/ai/suggest-category",
+                "OCR 텍스트 기반으로 AI 추천 카테고리를 생성하고 로그를 저장합니다.",
+                "{ \"receiptId\": \"11111111-1111-1111-1111-111111111111\", \"ocrText\": \"스타벅스 아메리카노 4500원\" }",
+                "{ \"logId\": \"22222222-2222-2222-2222-222222222222\", \"category\": \"카페\", \"confidence\": 0.93 }"),
+            new(
+                3,
+                "사용자 카테고리 확정",
+                "POST",
+                "/api/ai/confirm-category",
+                "AI 추천 결과를 사용자 확정값으로 저장해 피드백 데이터를 누적합니다.",
+                "{ \"logId\": \"(2번 응답의 logId)\", \"finalCategory\": \"식비\" }",
+                "{ \"logId\": \"22222222-2222-2222-2222-222222222222\", \"suggestedCategory\": \"카페\", \"finalCategory\": \"식비\", \"isCorrect\": false }"),
+            new(
+                4,
+                "대시보드 요약 확인",
+                "GET",
+                "/api/ai/dashboard/summary?recentLimit=10",
+                "정확도/대기건수/최근로그를 한번에 확인해 중간발표 결과를 요약합니다.",
+                null,
+                "{ \"generatedAt\": \"2026-01-10T01:40:00+00:00\", \"statusMessage\": \"AI 추론 데이터가 존재합니다. 최근 로그와 정확도 지표를 확인하세요.\", \"hasInferenceData\": true, \"accuracy\": { \"totalCount\": 120, \"confirmedCount\": 80, \"correctCount\": 61, \"accuracy\": 0.7625 }, \"pendingFeedbackCount\": 40, \"recentLogs\": { \"count\": 2, \"items\": [] } }")
+        };
+
+        return TypedResults.Ok(new AiDemoChecklistResult(steps));
     }
 }

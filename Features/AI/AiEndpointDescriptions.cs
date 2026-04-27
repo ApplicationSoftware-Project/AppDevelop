@@ -90,4 +90,72 @@ public static class AiEndpointDescriptions
           ]
         }
         """;
+
+    public const string RecentLogs = """
+        최근 AI 추론 로그를 최신순으로 조회합니다.
+
+        limit 미입력 시 기본값 20이 적용됩니다.
+
+        요청 예시: /api/ai/logs/recent?limit=20
+
+        성공 응답 예시(200):
+        {
+          "count": 2,
+          "items": [
+            {
+              "logId": "22222222-2222-2222-2222-222222222222",
+              "receiptId": "11111111-1111-1111-1111-111111111111",
+              "suggestedCategory": "카페",
+              "confidence": 0.93,
+              "finalCategory": "식비",
+              "isCorrect": false,
+              "createdAt": "2026-01-10T01:23:45+00:00",
+              "updatedAt": "2026-01-10T01:30:00+00:00"
+            }
+          ]
+        }
+        """;
+
+    public const string DashboardSummary = """
+        중간발표 시연을 위한 AI 대시보드 요약 정보를 제공합니다.
+
+        포함 정보:
+        - 전체 정확도(누적)
+        - 사용자 확정 대기 건수(pending)
+        - 최근 AI 추론 로그(recentLimit 기준)
+
+        recentLimit 미입력 시 기본값 10이 적용됩니다.
+
+        요청 예시: /api/ai/dashboard/summary?recentLimit=10
+
+        성공 응답 예시(200):
+        {
+          "generatedAt": "2026-01-10T01:40:00+00:00",
+          "statusMessage": "AI 추론 데이터가 존재합니다. 최근 로그와 정확도 지표를 확인하세요.",
+          "hasInferenceData": true,
+          "accuracy": {
+            "totalCount": 120,
+            "confirmedCount": 80,
+            "correctCount": 61,
+            "accuracy": 0.7625
+          },
+          "pendingFeedbackCount": 40,
+          "recentLogs": {
+            "count": 2,
+            "items": []
+          }
+        }
+        """;
+
+    public const string DemoChecklist = """
+        중간발표 시연에서 사용할 AI API 호출 순서를 제공합니다.
+
+        권장 순서:
+        1) Health 점검
+        2) AI 카테고리 추천(suggest-category)
+        3) 사용자 확정(confirm-category)
+        4) 정확도/요약 조회(accuracy, dashboard)
+
+        각 단계에는 목적, 요청 예시(JSON), 응답 예시(JSON)가 포함됩니다.
+        """;
 }

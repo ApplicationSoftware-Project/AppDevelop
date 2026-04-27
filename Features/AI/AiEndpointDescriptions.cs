@@ -155,7 +155,37 @@ public static class AiEndpointDescriptions
         2) AI 카테고리 추천(suggest-category)
         3) 사용자 확정(confirm-category)
         4) 정확도/요약 조회(accuracy, dashboard)
+        5) 예외/검증 실패 응답 확인(validation)
 
         각 단계에는 목적, 요청 예시(JSON), 응답 예시(JSON)가 포함됩니다.
+        """;
+
+    public const string DemoSeed = """
+        중간발표 시연을 위해 AI 추론 로그 샘플 데이터를 일괄 생성합니다.
+
+        요청 예시: /api/ai/demo/seed?total=30&confirmed=20
+
+        파라미터:
+        - total: 생성할 전체 로그 수(기본값 30, 1~500)
+        - confirmed: 사용자 확정 로그 수(기본값 total의 약 2/3, 0~total)
+
+        성공 응답 예시(200):
+        {
+          "insertedCount": 30,
+          "confirmedCount": 20,
+          "correctCount": 15,
+          "pendingCount": 10
+        }
+        """;
+
+    public const string DemoReset = """
+        중간발표 시연 데이터를 초기 상태로 되돌리기 위해 AI 추론 로그를 전체 삭제합니다.
+
+        요청 예시: /api/ai/demo/reset
+
+        성공 응답 예시(200):
+        {
+          "deletedCount": 30
+        }
         """;
 }

@@ -19,9 +19,15 @@ public static class BootstrapServiceCollectionExtensions
             .LoadFromConfig(configuration.GetSection("ReverseProxy"));
 
         var kernelBuilder = Kernel.CreateBuilder();
+        var openAiKey = configuration["AI:OpenAIKey"];
+        if (string.IsNullOrWhiteSpace(openAiKey))
+        {
+            openAiKey = "YOUR_API_KEY";
+        }
+
         kernelBuilder.AddOpenAIChatCompletion(
             modelId: "gpt-4o",
-            apiKey: configuration["AI:OpenAIKey"] ?? "YOUR_API_KEY");
+            apiKey: openAiKey);
 
         var kernel = kernelBuilder.Build();
         services.AddSingleton(kernel);

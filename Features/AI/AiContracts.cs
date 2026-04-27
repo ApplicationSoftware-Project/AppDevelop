@@ -38,3 +38,5 @@ public sealed record AiDemoChecklistStep(
     string Purpose,
     string? ExampleRequestJson,
     string? ExampleResponseJson);
+public sealed record AiDemoSeedResult(int InsertedCount, int ConfirmedCount, int CorrectCount, int PendingCount);
+public sealed record AiDemoResetResult(int DeletedCount);

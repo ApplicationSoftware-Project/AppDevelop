@@ -1,6 +1,6 @@
 using System.Text.Json;
-using App.Data;
-using App.Models;
+using App.Features.AI.Data;
+using App.Features.AI.Models;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;

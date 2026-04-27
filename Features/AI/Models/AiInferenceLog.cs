@@ -1,6 +1,6 @@
 using System;
 
-namespace App.Models
+namespace App.Features.AI.Models
 {
     public class AiInferenceLog
     {

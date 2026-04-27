@@ -1,13 +1,14 @@
 using Microsoft.SemanticKernel;
 using Microsoft.EntityFrameworkCore;
 using App.Features.AI;
+using App.Features.AI.Data;
 using App.Features.Gateway;
 using App.Features.Health;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // EF Core DbContext 등록
-builder.Services.AddDbContext<App.Data.AppDbContext>(options =>
+builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 //  1. 서비스 등록 (Dependency Injection) 

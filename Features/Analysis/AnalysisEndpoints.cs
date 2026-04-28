@@ -15,7 +15,8 @@ public static class AnalysisEndpoints
             return TypedResults.Ok(result);
         })
         .WithName("GetAnalysisSummary")
-        .WithSummary("분석 요약 정보 조회");
+        .WithSummary("분석 요약 정보 조회")
+        .WithDescription(AnalysisEndpointDescriptions.Summary);
 
         group.MapGet("/category-total", async Task<Ok<List<CategorySpending>>> (AnalysisService service) =>
         {
@@ -23,7 +24,8 @@ public static class AnalysisEndpoints
             return TypedResults.Ok(result);
         })
         .WithName("GetCategorySpending")
-        .WithSummary("카테고리별 지출 합계 조회");
+        .WithSummary("카테고리별 지출 합계 조회")
+        .WithDescription(AnalysisEndpointDescriptions.CategoryTotal);
 
         group.MapGet("/monthly-trend", async Task<Ok<List<MonthlyTrend>>> (AnalysisService service) =>
         {
@@ -31,6 +33,7 @@ public static class AnalysisEndpoints
             return TypedResults.Ok(result);
         })
         .WithName("GetMonthlyTrend")
-        .WithSummary("월별 지출 추이 조회");
+        .WithSummary("월별 지출 추이 조회")
+        .WithDescription(AnalysisEndpointDescriptions.MonthlyTrend);
     }
 }

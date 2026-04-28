@@ -46,6 +46,34 @@ namespace App.Features.Analysis
                 .ToListAsync();
         }
 
+        public async Task<List<CategorySpending>> GetCategorySpendingAsync(int? top, int? minCount)
+        {
+            var query = _context.AiInferenceLogs
+                .AsNoTracking()
+                .Where(log => log.FinalCategory != null)
+                .GroupBy(log => log.FinalCategory!)
+                .Select(g => new CategorySpending
+                {
+                    Category = g.Key,
+                    TotalCount = g.Count(),
+                    TotalAmount = g.Count() * 5000m
+                })
+                .OrderByDescending(x => x.TotalCount)
+                .AsQueryable();
+
+            if (minCount.HasValue)
+            {
+                query = query.Where(x => x.TotalCount >= minCount.Value);
+            }
+
+            if (top.HasValue)
+            {
+                query = query.Take(top.Value);
+            }
+
+            return await query.ToListAsync();
+        }
+
         public async Task<AnalysisSummary> GetSummaryAsync()
         {
             var totalCount = await _context.AiInferenceLogs.CountAsync();

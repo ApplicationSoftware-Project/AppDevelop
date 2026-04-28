@@ -22,6 +22,12 @@ public static class AnalysisEndpointDescriptions
     public const string CategoryTotal = """
         카테고리별 지출 합계를 반환합니다.
 
+        쿼리 파라미터:
+        - top: 상위 N개만 반환
+        - minCount: 최소 건수 필터
+
+        요청 예시: /api/analysis/category-total?top=3&minCount=2
+
         성공 응답 예시(200):
         [
           { "category": "식비", "totalCount": 32, "totalAmount": 160000 }

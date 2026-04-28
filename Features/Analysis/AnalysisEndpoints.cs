@@ -19,15 +19,32 @@ public static class AnalysisEndpoints
         .WithDescription(AnalysisEndpointDescriptions.Summary)
         .Produces<AnalysisSummary>(StatusCodes.Status200OK);
 
-        group.MapGet("/category-total", async Task<Ok<List<CategorySpending>>> (AnalysisService service) =>
+        group.MapGet("/category-total", async Task<Results<Ok<List<CategorySpending>>, ValidationProblem>> (int? top, int? minCount, AnalysisService service) =>
         {
-            var result = await service.GetCategorySpendingAsync();
+            if (top is <= 0)
+            {
+                return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    [nameof(top)] = ["top은 1 이상이어야 합니다."]
+                });
+            }
+
+            if (minCount is < 0)
+            {
+                return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    [nameof(minCount)] = ["minCount는 0 이상이어야 합니다."]
+                });
+            }
+
+            var result = await service.GetCategorySpendingAsync(top, minCount);
             return TypedResults.Ok(result);
         })
         .WithName("GetCategorySpending")
         .WithSummary("카테고리별 지출 합계 조회")
         .WithDescription(AnalysisEndpointDescriptions.CategoryTotal)
-        .Produces<List<CategorySpending>>(StatusCodes.Status200OK);
+        .Produces<List<CategorySpending>>(StatusCodes.Status200OK)
+        .ProducesValidationProblem(StatusCodes.Status400BadRequest);
 
         group.MapGet("/monthly-trend", async Task<Ok<List<MonthlyTrend>>> (AnalysisService service) =>
         {

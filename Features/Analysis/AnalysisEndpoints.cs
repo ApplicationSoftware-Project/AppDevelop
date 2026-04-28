@@ -16,7 +16,8 @@ public static class AnalysisEndpoints
         })
         .WithName("GetAnalysisSummary")
         .WithSummary("분석 요약 정보 조회")
-        .WithDescription(AnalysisEndpointDescriptions.Summary);
+        .WithDescription(AnalysisEndpointDescriptions.Summary)
+        .Produces<AnalysisSummary>(StatusCodes.Status200OK);
 
         group.MapGet("/category-total", async Task<Ok<List<CategorySpending>>> (AnalysisService service) =>
         {
@@ -25,7 +26,8 @@ public static class AnalysisEndpoints
         })
         .WithName("GetCategorySpending")
         .WithSummary("카테고리별 지출 합계 조회")
-        .WithDescription(AnalysisEndpointDescriptions.CategoryTotal);
+        .WithDescription(AnalysisEndpointDescriptions.CategoryTotal)
+        .Produces<List<CategorySpending>>(StatusCodes.Status200OK);
 
         group.MapGet("/monthly-trend", async Task<Ok<List<MonthlyTrend>>> (AnalysisService service) =>
         {
@@ -34,7 +36,8 @@ public static class AnalysisEndpoints
         })
         .WithName("GetMonthlyTrend")
         .WithSummary("월별 지출 추이 조회")
-        .WithDescription(AnalysisEndpointDescriptions.MonthlyTrend);
+        .WithDescription(AnalysisEndpointDescriptions.MonthlyTrend)
+        .Produces<List<MonthlyTrend>>(StatusCodes.Status200OK);
 
         group.MapGet("/demo/checklist", GetAnalysisDemoChecklist)
             .WithName("GetAnalysisDemoChecklist")

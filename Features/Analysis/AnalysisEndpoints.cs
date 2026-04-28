@@ -35,5 +35,44 @@ public static class AnalysisEndpoints
         .WithName("GetMonthlyTrend")
         .WithSummary("월별 지출 추이 조회")
         .WithDescription(AnalysisEndpointDescriptions.MonthlyTrend);
+
+        group.MapGet("/demo/checklist", GetAnalysisDemoChecklist)
+            .WithName("GetAnalysisDemoChecklist")
+            .WithSummary("중간발표용 분석 API 시연 체크리스트 조회")
+            .WithDescription(AnalysisEndpointDescriptions.DemoChecklist)
+            .Produces<AnalysisDemoChecklistResult>(StatusCodes.Status200OK);
+    }
+
+    private static Ok<AnalysisDemoChecklistResult> GetAnalysisDemoChecklist()
+    {
+        var steps = new List<AnalysisDemoChecklistStep>
+        {
+            new(
+                1,
+                "분석 요약 확인",
+                "GET",
+                "/api/analysis/summary",
+                "전체 지출 개요와 최다 카테고리를 확인합니다.",
+                null,
+                "{ \"totalCount\": 120, \"totalAmount\": 600000, \"topCategory\": \"식비\", \"generatedAt\": \"2026-04-29T01:20:00+00:00\" }"),
+            new(
+                2,
+                "카테고리별 합계 확인",
+                "GET",
+                "/api/analysis/category-total",
+                "카테고리별 지출 합계를 확인합니다.",
+                null,
+                "[{ \"category\": \"식비\", \"totalCount\": 32, \"totalAmount\": 160000 }]"),
+            new(
+                3,
+                "월별 추이 확인",
+                "GET",
+                "/api/analysis/monthly-trend",
+                "월별 소비 추이를 확인합니다.",
+                null,
+                "[{ \"year\": 2026, \"month\": 4, \"totalCount\": 45, \"totalAmount\": 225000 }]"),
+        };
+
+        return TypedResults.Ok(new AnalysisDemoChecklistResult(steps));
     }
 }

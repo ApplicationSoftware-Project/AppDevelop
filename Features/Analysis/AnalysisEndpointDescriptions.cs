@@ -36,4 +36,15 @@ public static class AnalysisEndpointDescriptions
           { "year": 2026, "month": 4, "totalCount": 45, "totalAmount": 225000 }
         ]
         """;
+
+    public const string DemoChecklist = """
+        중간발표 시연을 위한 분석 API 호출 순서를 제공합니다.
+
+        권장 순서:
+        1) 요약 지표 조회
+        2) 카테고리별 합계 조회
+        3) 월별 추이 조회
+
+        각 단계에는 목적, 요청 예시, 응답 예시가 포함됩니다.
+        """;
 }

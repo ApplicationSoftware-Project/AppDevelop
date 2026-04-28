@@ -30,4 +30,15 @@
         public int TotalCount { get; set; }
         public decimal TotalAmount { get; set; }
     }
+
+    public sealed record AnalysisDemoChecklistResult(IReadOnlyList<AnalysisDemoChecklistStep> Steps);
+
+    public sealed record AnalysisDemoChecklistStep(
+        int Order,
+        string Name,
+        string Method,
+        string Path,
+        string Purpose,
+        string? ExampleRequest,
+        string? ExampleResponse);
 }

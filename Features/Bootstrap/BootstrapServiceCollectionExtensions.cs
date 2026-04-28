@@ -1,5 +1,6 @@
 using App.Features.AI.Data;
 using App.Features.AI.Services;
+using App.Features.Analysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
 
@@ -37,6 +38,7 @@ public static class BootstrapServiceCollectionExtensions
         services.AddScoped<AiConfirmationService>();
         services.AddScoped<AiLogQueryService>();
         services.AddScoped<AiDashboardService>();
+        services.AddScoped<AnalysisService>();
 
         return services;
     }

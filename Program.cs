@@ -22,5 +22,6 @@ app.UseHttpsRedirection();
 app.MapHealthEndpoints();
 app.MapAiEndpoints();
 app.MapGatewayEndpoints();
+app.MapAnalysisEndpoints();
 
 app.Run();

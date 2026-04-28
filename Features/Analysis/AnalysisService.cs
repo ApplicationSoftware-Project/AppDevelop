@@ -1,10 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using App.Features.AI.Data;
+using App.Features.AI.Models;
+using App.Features.Analysis;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using App.Features.AI.Data;
-using App.Features.AI.Models;
-using Microsoft.EntityFrameworkCore;
-
 namespace App.Features.Analysis
 {
     /// <summary>
@@ -65,5 +68,33 @@ namespace App.Features.Analysis
         public int Month { get; set; }
         public int TotalCount { get; set; }
         public decimal TotalAmount { get; set; }
+    }
+}
+
+public static class AnalysisEndpoints
+{
+    public static void MapAnalysisEndpoints(this WebApplication app)
+    {
+        // /api/analysis 그룹 생성
+        var group = app.MapGroup("/api/analysis")
+            .WithTags("Analysis"); // Swagger에서 "Analysis" 그룹으로 표시됨
+
+        // 1. 카테고리별 지출 합계 API
+        group.MapGet("/category-total", async Task<IResult> (AnalysisService service) =>
+        {
+            var result = await service.GetCategorySpendingAsync();
+            return TypedResults.Ok(result);
+        })
+        .WithName("GetCategorySpending")
+        .WithSummary("카테고리별 지출 합계 조회");
+
+        // 2. 월별 지출 추이 API
+        group.MapGet("/monthly-trend", async Task<IResult> (AnalysisService service) =>
+        {
+            var result = await service.GetMonthlyTrendAsync();
+            return TypedResults.Ok(result);
+        })
+        .WithName("GetMonthlyTrend")
+        .WithSummary("월별 지출 추이 조회");
     }
 }

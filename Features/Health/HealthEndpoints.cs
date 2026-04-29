@@ -1,3 +1,6 @@
+using App.Features.AI.Data;
+using Microsoft.EntityFrameworkCore;
+
 namespace App.Features.Health;
 
 public static class HealthEndpoints
@@ -26,6 +29,21 @@ public static class HealthEndpoints
         })
         .WithName("AiHealth")
         .WithSummary("AI 오케스트레이터 준비 상태 확인")
+        .Produces(StatusCodes.Status200OK);
+
+        app.MapGet("/api/health/analysis", async (AppDbContext db) =>
+        {
+            var totalCount = await db.AiInferenceLogs.CountAsync();
+            return TypedResults.Ok(new
+            {
+                Service = "Analysis",
+                Status = totalCount > 0 ? "Ready" : "NoData",
+                TotalCount = totalCount,
+                UtcNow = DateTimeOffset.UtcNow
+            });
+        })
+        .WithName("AnalysisHealth")
+        .WithSummary("Analysis 서비스 준비 상태 확인")
         .Produces(StatusCodes.Status200OK);
     }
 }

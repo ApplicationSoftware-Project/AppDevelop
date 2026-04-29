@@ -46,6 +46,16 @@ public static class AnalysisEndpoints
         .Produces<List<CategorySpending>>(StatusCodes.Status200OK)
         .ProducesValidationProblem(StatusCodes.Status400BadRequest);
 
+        group.MapGet("/proxy-check", async Task<Ok<AnalysisSummary>> (AnalysisService service) =>
+        {
+            var result = await service.GetSummaryAsync();
+            return TypedResults.Ok(result);
+        })
+        .WithName("GetAnalysisProxyCheck")
+        .WithSummary("Gateway 프록시 시연용 Analysis 요약 조회")
+        .WithDescription("Gateway의 /api/proxy/analysis 경로로 재호출할 때 확인할 수 있는 분석 요약입니다.")
+        .Produces<AnalysisSummary>(StatusCodes.Status200OK);
+
         group.MapGet("/monthly-trend", async Task<Ok<List<MonthlyTrend>>> (AnalysisService service) =>
         {
             var result = await service.GetMonthlyTrendAsync();

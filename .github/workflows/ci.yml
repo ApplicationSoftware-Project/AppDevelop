@@ -24,8 +24,6 @@ jobs:
 
       - name: Restore
         run: dotnet restore App.sln
-        working-directory: App
 
       - name: Build
         run: dotnet build App.sln --configuration Release --no-restore
-        working-directory: App

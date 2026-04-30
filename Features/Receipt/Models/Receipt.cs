@@ -9,6 +9,9 @@ public class Receipt
     public decimal Amount { get; set; }
     public DateTimeOffset PurchasedAt { get; set; }
 
+    public string? ImagePath { get; set; }
+    public string? ContentType { get; set; }
+
     public string? RawOcrText { get; set; }
     public string? Category { get; set; }
     public string? AiSuggestedCategory { get; set; }

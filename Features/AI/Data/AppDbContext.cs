@@ -44,6 +44,8 @@ namespace App.Features.AI.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.StoreName).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.Amount).HasPrecision(18, 2);
+                entity.Property(e => e.ImagePath).HasMaxLength(500);
+                entity.Property(e => e.ContentType).HasMaxLength(100);
                 entity.Property(e => e.Category).HasMaxLength(200);
                 entity.Property(e => e.AiSuggestedCategory).HasMaxLength(200);
                 entity.Property(e => e.Status).HasConversion<string>();

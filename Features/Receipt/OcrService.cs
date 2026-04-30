@@ -3,20 +3,23 @@ using System.Text.RegularExpressions;
 namespace App.Features.Receipt;
 
 /// <summary>
-/// OCR 스텁 구현. 실제 OCR API(Azure AI Vision 등) 연동 전까지 텍스트 파싱으로 대체.
+/// 영수증 이미지 OCR. 실제 OCR API(Azure AI Vision / CLOVA 등) 연동 전까지 빈 결과를 반환하는 스텁.
+/// 실제 연동 시 ParseAsync 안에서 이미지 → 텍스트 추출 후 ExtractStoreName/Amount/Date 헬퍼 재사용.
 /// </summary>
 public partial class OcrService
 {
     private static readonly string[] StoreKeywords =
         ["스타벅스", "맥도날드", "GS25", "CU", "이마트", "코스트코", "올리브영", "배달의민족", "쿠팡"];
 
-    public OcrResult Parse(string rawText)
+    public Task<OcrResult> ParseAsync(string imagePath, CancellationToken ct = default)
     {
-        var storeName = ExtractStoreName(rawText);
-        var amount = ExtractAmount(rawText);
-        var purchasedAt = ExtractDate(rawText);
-
-        return new OcrResult(storeName, amount, purchasedAt, rawText);
+        // TODO: 실제 OCR 연동 — 이미지를 읽어 rawText를 얻고 아래 헬퍼로 필드 추출.
+        var stub = new OcrResult(
+            StoreName: string.Empty,
+            Amount: 0m,
+            PurchasedAt: DateTimeOffset.UtcNow,
+            RawText: string.Empty);
+        return Task.FromResult(stub);
     }
 
     private static string ExtractStoreName(string text)

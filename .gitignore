@@ -417,3 +417,9 @@ secrets.json
 App/appsettings.json
 # optional design-time factory if you keep connection string there (or better: remove it)
 App/Data/DesignTimeDbContextFactory.cs
+
+# 5. 런타임 업로드 / Claude Code 세션
+# 영수증 이미지 등 런타임 업로드 파일 (서버에서 자동 생성)
+storage/
+# Claude Code 세션 데이터 (개인 설정)
+.claude/

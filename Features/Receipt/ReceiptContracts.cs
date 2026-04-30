@@ -2,8 +2,7 @@ using App.Features.Receipt.Models;
 
 namespace App.Features.Receipt;
 
-public record UploadReceiptRequest(
-    string RawText,
+public record UploadReceiptForm(
     decimal? Amount,
     string? StoreName,
     DateTimeOffset? PurchasedAt);
@@ -20,6 +19,7 @@ public record ReceiptSummary(
 
 public record UploadReceiptResult(
     Guid ReceiptId,
+    string ImagePath,
     OcrResult Ocr,
     string? AiSuggestedCategory,
     double? AiConfidence,

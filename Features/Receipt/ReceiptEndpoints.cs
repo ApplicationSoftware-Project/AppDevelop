@@ -1,7 +1,7 @@
 using App.Features.AI.Data;
-using App.Features.AI.Services;
 using App.Features.Receipt.Models;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.SemanticKernel;
 using System.Security.Claims;
 
@@ -9,15 +9,26 @@ namespace App.Features.Receipt;
 
 public static class ReceiptEndpoints
 {
+    private const long MaxFileSizeBytes = 10 * 1024 * 1024;
+    private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg", "image/png", "image/webp"
+    };
+    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png", ".webp"
+    };
+
     public static void MapReceiptEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/receipts").WithTags("Receipt").RequireAuthorization();
 
         group.MapPost("/upload", Upload)
             .WithName("UploadReceipt")
-            .WithSummary("영수증 업로드 및 OCR/AI 처리")
-            .WithDescription("OCR 텍스트를 입력하면 상호명/금액/날짜를 파싱하고 AI 카테고리를 추천합니다.")
-            .Accepts<UploadReceiptRequest>("application/json")
+            .WithSummary("영수증 이미지 업로드 및 OCR/AI 처리")
+            .WithDescription("multipart/form-data로 영수증 이미지를 업로드하면 OCR 후 AI 카테고리를 추천합니다.")
+            .DisableAntiforgery()
+            .Accepts<IFormFile>("multipart/form-data")
             .Produces<UploadReceiptResult>(StatusCodes.Status201Created)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
@@ -39,25 +50,26 @@ public static class ReceiptEndpoints
     }
 
     private static async Task<Results<Created<UploadReceiptResult>, ValidationProblem, UnauthorizedHttpResult>> Upload(
-        UploadReceiptRequest request,
+        IFormFile file,
+        [FromForm] decimal? amount,
+        [FromForm] string? storeName,
+        [FromForm] DateTimeOffset? purchasedAt,
         ClaimsPrincipal principal,
         ReceiptService receiptService,
         Kernel kernel,
         AppDbContext db,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken ct)
     {
         if (!TryGetUserId(principal, out var userId))
             return TypedResults.Unauthorized();
 
-        if (string.IsNullOrWhiteSpace(request.RawText))
-        {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
-            {
-                [nameof(request.RawText)] = ["OCR 텍스트는 필수입니다."]
-            });
-        }
+        var errors = ValidateFile(file);
+        if (errors.Count > 0)
+            return TypedResults.ValidationProblem(errors);
 
-        var result = await receiptService.ProcessAsync(userId, request, kernel, db);
+        var form = new UploadReceiptForm(amount, storeName, purchasedAt);
+        var result = await receiptService.ProcessAsync(userId, file, form, kernel, db, ct);
         logger.LogInformation("영수증 업로드 완료. ReceiptId={ReceiptId}, Status={Status}", result.ReceiptId, result.Status);
 
         return TypedResults.Created($"/api/receipts/{result.ReceiptId}", result);
@@ -104,6 +116,23 @@ public static class ReceiptEndpoints
             receiptId, result.FinalCategory, result.AiWasCorrect);
 
         return TypedResults.Ok(result);
+    }
+
+    private static Dictionary<string, string[]> ValidateFile(IFormFile? file)
+    {
+        var errors = new Dictionary<string, string[]>();
+        if (file is null || file.Length == 0)
+        {
+            errors["file"] = ["영수증 이미지 파일은 필수입니다."];
+            return errors;
+        }
+        if (file.Length > MaxFileSizeBytes)
+            errors["file"] = [$"파일 크기는 {MaxFileSizeBytes / (1024 * 1024)}MB 이하여야 합니다."];
+        else if (!AllowedContentTypes.Contains(file.ContentType))
+            errors["file"] = ["허용되는 형식: image/jpeg, image/png, image/webp"];
+        else if (!AllowedExtensions.Contains(Path.GetExtension(file.FileName)))
+            errors["file"] = ["허용되는 확장자: .jpg, .jpeg, .png, .webp"];
+        return errors;
     }
 
     private static bool TryGetUserId(ClaimsPrincipal principal, out Guid userId)

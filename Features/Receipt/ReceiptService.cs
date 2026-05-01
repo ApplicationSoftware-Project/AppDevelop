@@ -9,14 +9,14 @@ namespace App.Features.Receipt;
 public class ReceiptService(
     OcrService ocrService,
     AiSuggestionService aiSuggestionService,
-    IWebHostEnvironment env)
+    IWebHostEnvironment env,
+    ILogger<ReceiptService> logger)
 {
     private const string StorageSubPath = "storage/receipts";
 
     public async Task<UploadReceiptResult> ProcessAsync(
         Guid userId,
         IFormFile file,
-        UploadReceiptForm form,
         Kernel kernel,
         AppDbContext db,
         CancellationToken ct = default)
@@ -36,9 +36,9 @@ public class ReceiptService(
         {
             Id = receiptId,
             UserId = userId,
-            StoreName = form.StoreName ?? (string.IsNullOrWhiteSpace(ocr.StoreName) ? "알 수 없는 상점" : ocr.StoreName),
-            Amount = form.Amount ?? ocr.Amount,
-            PurchasedAt = form.PurchasedAt ?? ocr.PurchasedAt,
+            StoreName = string.IsNullOrWhiteSpace(ocr.StoreName) ? "알 수 없는 상점" : ocr.StoreName,
+            Amount = ocr.Amount,
+            PurchasedAt = ocr.PurchasedAt,
             ImagePath = relativePath,
             ContentType = file.ContentType,
             RawOcrText = string.IsNullOrWhiteSpace(ocr.RawText) ? null : ocr.RawText,
@@ -68,9 +68,9 @@ public class ReceiptService(
                 receipt.ProcessedAt = DateTimeOffset.UtcNow;
                 await db.SaveChangesAsync(ct);
             }
-            catch
+            catch (Exception ex)
             {
-                // AI 실패해도 OCR 결과는 저장
+                logger.LogWarning(ex, "AI 카테고리 추천 실패. ReceiptId={ReceiptId} (OCR 결과는 보존됨)", receipt.Id);
             }
         }
 

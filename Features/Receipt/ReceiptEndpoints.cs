@@ -51,9 +51,6 @@ public static class ReceiptEndpoints
 
     private static async Task<Results<Created<UploadReceiptResult>, ValidationProblem, UnauthorizedHttpResult>> Upload(
         IFormFile file,
-        [FromForm] decimal? amount,
-        [FromForm] string? storeName,
-        [FromForm] DateTimeOffset? purchasedAt,
         ClaimsPrincipal principal,
         ReceiptService receiptService,
         Kernel kernel,
@@ -68,8 +65,7 @@ public static class ReceiptEndpoints
         if (errors.Count > 0)
             return TypedResults.ValidationProblem(errors);
 
-        var form = new UploadReceiptForm(amount, storeName, purchasedAt);
-        var result = await receiptService.ProcessAsync(userId, file, form, kernel, db, ct);
+        var result = await receiptService.ProcessAsync(userId, file, kernel, db, ct);
         logger.LogInformation("영수증 업로드 완료. ReceiptId={ReceiptId}, Status={Status}", result.ReceiptId, result.Status);
 
         return TypedResults.Created($"/api/receipts/{result.ReceiptId}", result);

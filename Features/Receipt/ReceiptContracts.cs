@@ -2,11 +2,6 @@ using App.Features.Receipt.Models;
 
 namespace App.Features.Receipt;
 
-public record UploadReceiptForm(
-    decimal? Amount,
-    string? StoreName,
-    DateTimeOffset? PurchasedAt);
-
 public record ReceiptSummary(
     Guid ReceiptId,
     string StoreName,

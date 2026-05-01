@@ -1,12 +1,13 @@
-using System.Text;
+using AuthService.Data;
+using AuthService.Middleware;
+using AuthService.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using Microsoft.OpenApi.Models;
-using AuthService.Data;
-using AuthService.Middleware;
-using AuthService.Services;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,16 +24,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer           = true,
-            ValidIssuer              = jwtSection["Issuer"] ?? "AuthService",
-            ValidateAudience         = true,
-            ValidAudience            = jwtSection["Audience"] ?? "AuthServiceClient",
+            ValidateIssuer = true,
+            ValidIssuer = jwtSection["Issuer"] ?? "AuthService",
+            ValidateAudience = true,
+            ValidAudience = jwtSection["Audience"] ?? "AuthServiceClient",
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
-            ValidateLifetime         = true,
-            ClockSkew                = TimeSpan.Zero,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero,
             // 다중 Role 클레임을 올바르게 매핑
-            RoleClaimType            = System.Security.Claims.ClaimTypes.Role
+            RoleClaimType = System.Security.Claims.ClaimTypes.Role
         };
     });
 
@@ -66,11 +67,11 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Auth API (RBAC)", Version = "v1" });
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Name        = "Authorization",
-        Type        = SecuritySchemeType.Http,
-        Scheme      = "bearer",
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
         BearerFormat = "JWT",
-        In          = ParameterLocation.Header,
+        In = ParameterLocation.Header,
         Description = "Bearer {token} 형식으로 입력하세요"
     });
     c.AddSecurityRequirement(new OpenApiSecurityRequirement

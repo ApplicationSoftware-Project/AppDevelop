@@ -9,6 +9,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SemanticKernel;
 
+#pragma warning disable SKEXP0070 // Google connector is preview
+
 namespace App.Features.Bootstrap;
 
 public static class BootstrapServiceCollectionExtensions
@@ -54,13 +56,13 @@ public static class BootstrapServiceCollectionExtensions
 
         services.AddAuthorization();
 
-        // Semantic Kernel (AI)
-        var kernelBuilder = Kernel.CreateBuilder();
-        var openAiKey = configuration["AI:OpenAIKey"];
-        if (string.IsNullOrWhiteSpace(openAiKey))
-            openAiKey = "YOUR_API_KEY";
+        // Semantic Kernel (Gemini via Google AI)
+        var geminiKey = configuration["AI:GeminiKey"]
+            ?? throw new InvalidOperationException("AI:GeminiKey가 설정되어 있지 않습니다. dotnet user-secrets로 설정하세요.");
+        var geminiModel = configuration["AI:GeminiModel"] ?? "gemini-2.5-flash-lite";
 
-        kernelBuilder.AddOpenAIChatCompletion(modelId: "gpt-4o", apiKey: openAiKey);
+        var kernelBuilder = Kernel.CreateBuilder();
+        kernelBuilder.AddGoogleAIGeminiChatCompletion(modelId: geminiModel, apiKey: geminiKey);
         var kernel = kernelBuilder.Build();
         services.AddSingleton(kernel);
 

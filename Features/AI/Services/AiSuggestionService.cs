@@ -16,7 +16,7 @@ public sealed class AiSuggestionService
         var prompt = promptTemplate + request.OcrText;
 
         var result = await kernel.InvokePromptAsync(prompt);
-        var responseText = result.ToString();
+        var responseText = StripCodeFences(result.ToString());
 
         try
         {
@@ -63,5 +63,17 @@ public sealed class AiSuggestionService
         {
             throw new AiFeatureException("AI 추천 로그 저장 중 오류가 발생했습니다.", StatusCodes.Status500InternalServerError, ex);
         }
+    }
+
+    private static string StripCodeFences(string text)
+    {
+        var trimmed = text.Trim();
+        if (!trimmed.StartsWith("```")) return trimmed;
+
+        var firstNewline = trimmed.IndexOf('\n');
+        var body = firstNewline >= 0 ? trimmed[(firstNewline + 1)..] : trimmed[3..];
+        if (body.EndsWith("```"))
+            body = body[..^3];
+        return body.Trim();
     }
 }

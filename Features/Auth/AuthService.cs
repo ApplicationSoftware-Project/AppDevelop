@@ -1,11 +1,12 @@
+using App.Features.AI.Data;
+using App.Features.Auth.Models;
+using Google.Apis.Auth.OAuth2.Requests;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using App.Features.AI.Data;
-using App.Features.Auth.Models;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 
 namespace App.Features.Auth;
 
@@ -73,7 +74,9 @@ public class AuthService(IConfiguration configuration)
         RefreshTokenRequest request, AppDbContext db)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.RefreshToken == request.RefreshToken);
-        if (user is null || user.RefreshTokenExpiry < DateTimeOffset.UtcNow)
+
+        // [보안 수정 4] RefreshTokenExpiry null 체크 추가
+        if (user is null || user.RefreshTokenExpiry is null || user.RefreshTokenExpiry < DateTimeOffset.UtcNow)
             return (false, "유효하지 않거나 만료된 리프레시 토큰입니다.", null);
 
         user.RefreshToken = GenerateRefreshToken();
@@ -124,6 +127,9 @@ public class AuthService(IConfiguration configuration)
             return (false, "새 비밀번호는 6자 이상이어야 합니다.");
 
         user.PasswordHash = HashPassword(request.NewPassword);
+        // [보안 수정 3] 비밀번호 변경 시 리프레시 토큰 폐기
+        user.RefreshToken = null;
+        user.RefreshTokenExpiry = null;
         await db.SaveChangesAsync();
         return (true, null);
     }

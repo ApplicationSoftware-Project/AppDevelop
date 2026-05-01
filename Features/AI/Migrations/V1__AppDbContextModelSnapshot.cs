@@ -78,7 +78,9 @@ namespace App.Features.AI.Migrations
                         .HasColumnType("nvarchar(256)");
 
                     b.Property<bool>("EmailNotification")
-                        .HasColumnType("bit");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<DateTimeOffset?>("LastLoginAt")
                         .HasColumnType("datetimeoffset");
@@ -96,7 +98,9 @@ namespace App.Features.AI.Migrations
                         .HasColumnType("nvarchar(512)");
 
                     b.Property<bool>("PushNotification")
-                        .HasColumnType("bit");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("RefreshToken")
                         .HasMaxLength(512)

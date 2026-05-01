@@ -38,10 +38,14 @@ namespace App.Features.AI.Data
                 entity.Property(e => e.Role).IsRequired().HasMaxLength(50).HasDefaultValue("User");
                 entity.Property(e => e.CreatedAt).IsRequired();
 
-                // â”€â”€ NAM í•„ë“œ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // Ãß°¡ ÇÊµå
                 entity.Property(e => e.PhoneNumber).HasMaxLength(20);
                 entity.Property(e => e.ProfileImageUrl).HasMaxLength(512);
                 entity.Property(e => e.RefreshToken).HasMaxLength(512);
+
+                // [¹ö±× ¼öÁ¤ 6] ¾Ë¸² ±âº»°ª true·Î ¼öÁ¤
+                entity.Property(e => e.EmailNotification).HasDefaultValue(true);
+                entity.Property(e => e.PushNotification).HasDefaultValue(true);
             });
 
             modelBuilder.Entity<ReceiptModel>(entity =>

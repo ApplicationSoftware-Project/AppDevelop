@@ -5,8 +5,8 @@ namespace App.Features.Receipt;
 public record ReceiptSummary(
     Guid ReceiptId,
     string StoreName,
-    decimal Amount,
-    DateTimeOffset PurchasedAt,
+    decimal? Amount,
+    DateTimeOffset? PurchasedAt,
     string? Category,
     string? AiSuggestedCategory,
     ReceiptStatus Status,
@@ -19,21 +19,24 @@ public record UploadReceiptResult(
     string? AiSuggestedCategory,
     double? AiConfidence,
     Guid? AiLogId,
-    ReceiptStatus Status);
+    ReceiptStatus Status,
+    IReadOnlyList<string> Warnings);
 
 public record OcrResult(
+    bool IsReceipt,
     string StoreName,
-    decimal Amount,
-    DateTimeOffset PurchasedAt,
-    string RawText);
+    decimal? Amount,
+    DateTimeOffset? PurchasedAt,
+    string RawText,
+    IReadOnlyList<string> Warnings);
 
 public record ReceiptListResult(int Total, IReadOnlyList<ReceiptSummary> Items);
 
 public record ReceiptDetail(
     Guid ReceiptId,
     string StoreName,
-    decimal Amount,
-    DateTimeOffset PurchasedAt,
+    decimal? Amount,
+    DateTimeOffset? PurchasedAt,
     string? Category,
     string? AiSuggestedCategory,
     ReceiptStatus Status,
@@ -48,3 +51,5 @@ public record ConfirmReceiptCategoryResult(
     Guid ReceiptId,
     string FinalCategory,
     bool AiWasCorrect);
+
+public record ApiError(string Message);

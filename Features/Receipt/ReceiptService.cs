@@ -14,7 +14,7 @@ public class ReceiptService(
 {
     private const string StorageSubPath = "storage/receipts";
 
-    public async Task<UploadReceiptResult> ProcessAsync(
+    public async Task<UploadReceiptResult?> ProcessAsync(
         Guid userId,
         IFormFile file,
         Kernel kernel,
@@ -32,11 +32,18 @@ public class ReceiptService(
 
         var ocr = await ocrService.ParseAsync(absolutePath, ct);
 
+        if (!ocr.IsReceipt)
+        {
+            TryDeleteFile(absolutePath, receiptId);
+            logger.LogInformation("업로드된 이미지가 영수증으로 인식되지 않아 거부됨. ReceiptId={ReceiptId}", receiptId);
+            return null;
+        }
+
         var receipt = new Models.Receipt
         {
             Id = receiptId,
             UserId = userId,
-            StoreName = string.IsNullOrWhiteSpace(ocr.StoreName) ? "알 수 없는 상점" : ocr.StoreName,
+            StoreName = ocr.StoreName,
             Amount = ocr.Amount,
             PurchasedAt = ocr.PurchasedAt,
             ImagePath = relativePath,
@@ -63,6 +70,7 @@ public class ReceiptService(
                 aiLogId = aiResult.LogId;
 
                 receipt.AiSuggestedCategory = suggestedCategory;
+                receipt.Category = suggestedCategory;
                 receipt.AiLogId = aiLogId;
                 receipt.Status = ReceiptStatus.AiCategorized;
                 receipt.ProcessedAt = DateTimeOffset.UtcNow;
@@ -74,7 +82,8 @@ public class ReceiptService(
             }
         }
 
-        return new UploadReceiptResult(receipt.Id, relativePath, ocr, suggestedCategory, confidence, aiLogId, receipt.Status);
+        return new UploadReceiptResult(
+            receipt.Id, relativePath, ocr, suggestedCategory, confidence, aiLogId, receipt.Status, ocr.Warnings);
     }
 
     public async Task<ReceiptListResult> GetListAsync(Guid userId, int page, int pageSize, AppDbContext db)
@@ -83,6 +92,7 @@ public class ReceiptService(
         var total = await query.CountAsync();
         var items = await query
             .OrderByDescending(r => r.PurchasedAt)
+            .ThenByDescending(r => r.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(r => new ReceiptSummary(
@@ -133,14 +143,7 @@ public class ReceiptService(
         if (!string.IsNullOrEmpty(receipt.ImagePath))
         {
             var absolute = ResolveAbsolute(receipt.ImagePath);
-            try
-            {
-                if (File.Exists(absolute)) File.Delete(absolute);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "영수증 이미지 파일 삭제 실패. ReceiptId={ReceiptId}, Path={Path}", receiptId, absolute);
-            }
+            TryDeleteFile(absolute, receiptId);
         }
 
         db.Receipts.Remove(receipt);
@@ -161,6 +164,18 @@ public class ReceiptService(
         await db.SaveChangesAsync();
 
         return new ConfirmReceiptCategoryResult(receiptId, finalCategory, aiWasCorrect);
+    }
+
+    private void TryDeleteFile(string absolutePath, Guid receiptId)
+    {
+        try
+        {
+            if (File.Exists(absolutePath)) File.Delete(absolutePath);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "영수증 이미지 파일 삭제 실패. ReceiptId={ReceiptId}, Path={Path}", receiptId, absolutePath);
+        }
     }
 
     private string ResolveAbsolute(string relativePath) =>

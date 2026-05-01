@@ -4,7 +4,8 @@
 		<Nullable>enable</Nullable>
 		<LangVersion>14.0</LangVersion>
 		<NoWarn>NU1902</NoWarn>
-	</PropertyGroup>
+	  <UserSecretsId>6458f788-00a6-485a-b7e7-9910af9c13d2</UserSecretsId>
+  </PropertyGroup>
  <ItemGroup>
    <None Include=".github\copilot-instructions.md" />
  </ItemGroup>
@@ -25,6 +26,7 @@
 		<PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.12.0" />
 		<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.12.0" />
 		<PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.12.0" />
+		<PackageReference Include="Microsoft.SemanticKernel.Connectors.Google" Version="1.74.0-alpha" />
 	</ItemGroup>
 
 	<ItemGroup>

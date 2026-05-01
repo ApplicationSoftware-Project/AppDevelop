@@ -423,3 +423,12 @@ App/Data/DesignTimeDbContextFactory.cs
 storage/
 # Claude Code 세션 데이터 (개인 설정)
 .claude/
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# 빌드 결과물
+bin/
+obj/

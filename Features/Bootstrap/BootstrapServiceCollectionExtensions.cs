@@ -75,7 +75,7 @@ public static class BootstrapServiceCollectionExtensions
         services.AddScoped<AnalysisService>();
 
         // Services - Auth
-        services.AddScoped<AuthService>();
+        services.AddScoped<App.Features.Auth.AuthService>();
 
         // Services - Receipt
         services.AddScoped<OcrService>();

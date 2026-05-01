@@ -12,6 +12,11 @@
     <None Include=".github\copilot-instructions.md" />
   </ItemGroup>
 
+  <!-- AuthService/ 폴더는 별도 마이크로서비스이므로 컴파일 대상에서 제외 -->
+  <ItemGroup>
+    <Compile Remove="AuthService\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.5" />

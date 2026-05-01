@@ -37,6 +37,11 @@ namespace App.Features.AI.Data
                 entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Role).IsRequired().HasMaxLength(50).HasDefaultValue("User");
                 entity.Property(e => e.CreatedAt).IsRequired();
+
+                // ── NAM 필드 ────────────────
+                entity.Property(e => e.PhoneNumber).HasMaxLength(20);
+                entity.Property(e => e.ProfileImageUrl).HasMaxLength(512);
+                entity.Property(e => e.RefreshToken).HasMaxLength(512);
             });
 
             modelBuilder.Entity<ReceiptModel>(entity =>

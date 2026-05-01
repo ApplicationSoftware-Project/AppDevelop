@@ -15,22 +15,22 @@ public class AuthService(IConfiguration configuration)
         ?? throw new InvalidOperationException("Jwt:Secret is not configured");
     private readonly string _jwtIssuer = configuration["Jwt:Issuer"] ?? "NoMoreReceipts";
     private readonly string _jwtAudience = configuration["Jwt:Audience"] ?? "NoMoreReceiptsUsers";
-    private readonly int _jwtExpiresInSeconds = int.TryParse(configuration["Jwt:ExpiresInSeconds"], out var s) ? s : 3600;
+    private readonly int _jwtExpiresInSeconds =
+        int.TryParse(configuration["Jwt:ExpiresInSeconds"], out var s) ? s : 3600;
+    private readonly int _refreshTokenDays =
+        int.TryParse(configuration["Jwt:RefreshTokenExpiryDays"], out var d) ? d : 7;
 
+    // ── 회원가입 ─────────────────────────────────────
     public async Task<(bool Success, string? Error, RegisterResult? Result)> RegisterAsync(
         RegisterRequest request, AppDbContext db)
     {
         if (string.IsNullOrWhiteSpace(request.Email) || !request.Email.Contains('@'))
             return (false, "유효한 이메일을 입력하세요.", null);
-
         if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
             return (false, "비밀번호는 6자 이상이어야 합니다.", null);
-
         if (string.IsNullOrWhiteSpace(request.DisplayName))
             return (false, "표시 이름을 입력하세요.", null);
-
-        var exists = await db.Users.AnyAsync(u => u.Email == request.Email.ToLower());
-        if (exists)
+        if (await db.Users.AnyAsync(u => u.Email == request.Email.ToLower()))
             return (false, "이미 사용 중인 이메일입니다.", null);
 
         var user = new User
@@ -47,6 +47,7 @@ public class AuthService(IConfiguration configuration)
         return (true, null, new RegisterResult(user.Id, user.Email, user.DisplayName, user.CreatedAt));
     }
 
+    // ── 로그인 ───────────────────────────────────────
     public async Task<(bool Success, string? Error, LoginResult? Result)> LoginAsync(
         LoginRequest request, AppDbContext db)
     {
@@ -58,12 +59,90 @@ public class AuthService(IConfiguration configuration)
             return (false, "이메일 또는 비밀번호가 올바르지 않습니다.", null);
 
         user.LastLoginAt = DateTimeOffset.UtcNow;
+        user.RefreshToken = GenerateRefreshToken();
+        user.RefreshTokenExpiry = DateTimeOffset.UtcNow.AddDays(_refreshTokenDays);
         await db.SaveChangesAsync();
 
-        var token = GenerateJwt(user);
-        return (true, null, new LoginResult(token, "Bearer", _jwtExpiresInSeconds, user.Email, user.DisplayName, user.Role));
+        return (true, null, new LoginResult(
+            GenerateJwt(user), user.RefreshToken, "Bearer",
+            _jwtExpiresInSeconds, user.Email, user.DisplayName, user.Role));
     }
 
+    // ── 리프레시 토큰 ────────────────────────────────
+    public async Task<(bool Success, string? Error, RefreshTokenResult? Result)> RefreshAsync(
+        RefreshTokenRequest request, AppDbContext db)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.RefreshToken == request.RefreshToken);
+        if (user is null || user.RefreshTokenExpiry < DateTimeOffset.UtcNow)
+            return (false, "유효하지 않거나 만료된 리프레시 토큰입니다.", null);
+
+        user.RefreshToken = GenerateRefreshToken();
+        user.RefreshTokenExpiry = DateTimeOffset.UtcNow.AddDays(_refreshTokenDays);
+        await db.SaveChangesAsync();
+
+        return (true, null, new RefreshTokenResult(
+            GenerateJwt(user), user.RefreshToken!, _jwtExpiresInSeconds));
+    }
+
+    // ── 로그아웃 ─────────────────────────────────────
+    public async Task RevokeAsync(string refreshToken, AppDbContext db)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
+        if (user is null) return;
+        user.RefreshToken = null;
+        user.RefreshTokenExpiry = null;
+        await db.SaveChangesAsync();
+    }
+
+    // ── 프로필 수정 ──────────────────────────────────
+    public async Task<(bool Success, string? Error)> UpdateProfileAsync(
+        Guid userId, UpdateProfileRequest request, AppDbContext db)
+    {
+        var user = await db.Users.FindAsync(userId);
+        if (user is null) return (false, "사용자를 찾을 수 없습니다.");
+
+        if (!string.IsNullOrWhiteSpace(request.DisplayName))
+            user.DisplayName = request.DisplayName;
+        if (request.PhoneNumber is not null)
+            user.PhoneNumber = request.PhoneNumber;
+        if (request.ProfileImageUrl is not null)
+            user.ProfileImageUrl = request.ProfileImageUrl;
+
+        await db.SaveChangesAsync();
+        return (true, null);
+    }
+
+    // ── 비밀번호 변경 ────────────────────────────────
+    public async Task<(bool Success, string? Error)> ChangePasswordAsync(
+        Guid userId, ChangePasswordRequest request, AppDbContext db)
+    {
+        var user = await db.Users.FindAsync(userId);
+        if (user is null) return (false, "사용자를 찾을 수 없습니다.");
+        if (!VerifyPassword(request.CurrentPassword, user.PasswordHash))
+            return (false, "현재 비밀번호가 올바르지 않습니다.");
+        if (request.NewPassword.Length < 6)
+            return (false, "새 비밀번호는 6자 이상이어야 합니다.");
+
+        user.PasswordHash = HashPassword(request.NewPassword);
+        await db.SaveChangesAsync();
+        return (true, null);
+    }
+
+    // ── 알림 설정 변경 ───────────────────────────────
+    public async Task<(bool Success, NotificationResult? Result)> UpdateNotificationAsync(
+        Guid userId, UpdateNotificationRequest request, AppDbContext db)
+    {
+        var user = await db.Users.FindAsync(userId);
+        if (user is null) return (false, null);
+
+        user.EmailNotification = request.EmailNotification;
+        user.PushNotification = request.PushNotification;
+        await db.SaveChangesAsync();
+
+        return (true, new NotificationResult(user.EmailNotification, user.PushNotification));
+    }
+
+    // ── JWT 생성 ─────────────────────────────────────
     private string GenerateJwt(User user)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSecret));
@@ -71,11 +150,11 @@ public class AuthService(IConfiguration configuration)
 
         var claims = new[]
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.Sub,   user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim(ClaimTypes.Name, user.DisplayName),
-            new Claim(ClaimTypes.Role, user.Role),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new Claim(ClaimTypes.Name,               user.DisplayName),
+            new Claim(ClaimTypes.Role,               user.Role),
+            new Claim(JwtRegisteredClaimNames.Jti,   Guid.NewGuid().ToString())
         };
 
         var token = new JwtSecurityToken(
@@ -88,6 +167,14 @@ public class AuthService(IConfiguration configuration)
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
+    private static string GenerateRefreshToken()
+    {
+        var bytes = new byte[64];
+        RandomNumberGenerator.Fill(bytes);
+        return Convert.ToBase64String(bytes);
+    }
+
+    // ── PBKDF2 (SHA-256, 100,000회) ──────────────────
     private static string HashPassword(string password)
     {
         var salt = RandomNumberGenerator.GetBytes(16);

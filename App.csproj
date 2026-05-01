@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -7,11 +6,9 @@
     <NoWarn>NU1902</NoWarn>
     <UserSecretsId>6458f788-00a6-485a-b7e7-9910af9c13d2</UserSecretsId>
   </PropertyGroup>
-
   <ItemGroup>
     <None Include=".github\copilot-instructions.md" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.5" />
@@ -30,9 +27,10 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.12.0" />
     <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.12.0" />
   </ItemGroup>
-
   <ItemGroup>
     <Folder Include="Migrations\" />
   </ItemGroup>
-
+  <ItemGroup>
+    <Compile Remove="AuthService\**" />
+  </ItemGroup>
 </Project>

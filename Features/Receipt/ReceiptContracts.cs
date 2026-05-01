@@ -29,6 +29,19 @@ public record OcrResult(
 
 public record ReceiptListResult(int Total, IReadOnlyList<ReceiptSummary> Items);
 
+public record ReceiptDetail(
+    Guid ReceiptId,
+    string StoreName,
+    decimal Amount,
+    DateTimeOffset PurchasedAt,
+    string? Category,
+    string? AiSuggestedCategory,
+    ReceiptStatus Status,
+    string? RawOcrText,
+    string? ContentType,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? ProcessedAt);
+
 public record ConfirmReceiptCategoryRequest(string FinalCategory);
 
 public record ConfirmReceiptCategoryResult(

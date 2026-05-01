@@ -93,6 +93,61 @@ public class ReceiptService(
         return new ReceiptListResult(total, items);
     }
 
+    public async Task<ReceiptDetail?> GetDetailAsync(Guid receiptId, Guid userId, AppDbContext db)
+    {
+        return await db.Receipts
+            .AsNoTracking()
+            .Where(r => r.Id == receiptId && r.UserId == userId)
+            .Select(r => new ReceiptDetail(
+                r.Id, r.StoreName, r.Amount, r.PurchasedAt,
+                r.Category, r.AiSuggestedCategory, r.Status,
+                r.RawOcrText, r.ContentType, r.CreatedAt, r.ProcessedAt))
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<(string AbsolutePath, string ContentType)?> GetImageAsync(Guid receiptId, Guid userId, AppDbContext db)
+    {
+        var row = await db.Receipts
+            .AsNoTracking()
+            .Where(r => r.Id == receiptId && r.UserId == userId)
+            .Select(r => new { r.ImagePath, r.ContentType })
+            .FirstOrDefaultAsync();
+
+        if (row is null || string.IsNullOrEmpty(row.ImagePath)) return null;
+
+        var absolute = ResolveAbsolute(row.ImagePath);
+        if (!File.Exists(absolute))
+        {
+            logger.LogWarning("영수증 이미지 파일이 디스크에 없습니다. ReceiptId={ReceiptId}, Path={Path}", receiptId, absolute);
+            return null;
+        }
+
+        return (absolute, row.ContentType ?? "application/octet-stream");
+    }
+
+    public async Task<bool> DeleteAsync(Guid receiptId, Guid userId, AppDbContext db, CancellationToken ct = default)
+    {
+        var receipt = await db.Receipts.FirstOrDefaultAsync(r => r.Id == receiptId && r.UserId == userId, ct);
+        if (receipt is null) return false;
+
+        if (!string.IsNullOrEmpty(receipt.ImagePath))
+        {
+            var absolute = ResolveAbsolute(receipt.ImagePath);
+            try
+            {
+                if (File.Exists(absolute)) File.Delete(absolute);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "영수증 이미지 파일 삭제 실패. ReceiptId={ReceiptId}, Path={Path}", receiptId, absolute);
+            }
+        }
+
+        db.Receipts.Remove(receipt);
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
     public async Task<ConfirmReceiptCategoryResult?> ConfirmCategoryAsync(
         Guid receiptId, Guid userId, string finalCategory, AppDbContext db)
     {
@@ -107,6 +162,9 @@ public class ReceiptService(
 
         return new ConfirmReceiptCategoryResult(receiptId, finalCategory, aiWasCorrect);
     }
+
+    private string ResolveAbsolute(string relativePath) =>
+        Path.Combine(env.ContentRootPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
 
     private (string RelativePath, string AbsolutePath) BuildPaths(Guid userId, Guid receiptId, string originalFileName)
     {

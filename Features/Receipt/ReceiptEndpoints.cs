@@ -39,6 +39,27 @@ public static class ReceiptEndpoints
             .Produces<ReceiptListResult>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized);
 
+        group.MapGet("/{receiptId:guid}", GetDetail)
+            .WithName("GetReceiptDetail")
+            .WithSummary("영수증 단건 조회")
+            .Produces<ReceiptDetail>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapGet("/{receiptId:guid}/image", GetImage)
+            .WithName("GetReceiptImage")
+            .WithSummary("영수증 이미지 다운로드")
+            .Produces(StatusCodes.Status200OK, contentType: "image/jpeg", additionalContentTypes: ["image/png", "image/webp"])
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapDelete("/{receiptId:guid}", Delete)
+            .WithName("DeleteReceipt")
+            .WithSummary("영수증 삭제 (이미지 파일 포함)")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status401Unauthorized);
+
         group.MapPost("/{receiptId:guid}/confirm", ConfirmCategory)
             .WithName("ConfirmReceiptCategory")
             .WithSummary("영수증 카테고리 확정")
@@ -112,6 +133,54 @@ public static class ReceiptEndpoints
             receiptId, result.FinalCategory, result.AiWasCorrect);
 
         return TypedResults.Ok(result);
+    }
+
+    private static async Task<Results<Ok<ReceiptDetail>, NotFound, UnauthorizedHttpResult>> GetDetail(
+        Guid receiptId,
+        ClaimsPrincipal principal,
+        ReceiptService receiptService,
+        AppDbContext db)
+    {
+        if (!TryGetUserId(principal, out var userId))
+            return TypedResults.Unauthorized();
+
+        var detail = await receiptService.GetDetailAsync(receiptId, userId, db);
+        return detail is null ? TypedResults.NotFound() : TypedResults.Ok(detail);
+    }
+
+    private static async Task<Results<PhysicalFileHttpResult, NotFound, UnauthorizedHttpResult>> GetImage(
+        Guid receiptId,
+        ClaimsPrincipal principal,
+        ReceiptService receiptService,
+        AppDbContext db,
+        HttpContext http)
+    {
+        if (!TryGetUserId(principal, out var userId))
+            return TypedResults.Unauthorized();
+
+        var image = await receiptService.GetImageAsync(receiptId, userId, db);
+        if (image is null) return TypedResults.NotFound();
+
+        http.Response.Headers.CacheControl = "private, max-age=3600";
+        return TypedResults.PhysicalFile(image.Value.AbsolutePath, image.Value.ContentType);
+    }
+
+    private static async Task<Results<NoContent, NotFound, UnauthorizedHttpResult>> Delete(
+        Guid receiptId,
+        ClaimsPrincipal principal,
+        ReceiptService receiptService,
+        AppDbContext db,
+        ILogger<Program> logger,
+        CancellationToken ct)
+    {
+        if (!TryGetUserId(principal, out var userId))
+            return TypedResults.Unauthorized();
+
+        var deleted = await receiptService.DeleteAsync(receiptId, userId, db, ct);
+        if (!deleted) return TypedResults.NotFound();
+
+        logger.LogInformation("영수증 삭제 완료. ReceiptId={ReceiptId}, UserId={UserId}", receiptId, userId);
+        return TypedResults.NoContent();
     }
 
     private static Dictionary<string, string[]> ValidateFile(IFormFile? file)

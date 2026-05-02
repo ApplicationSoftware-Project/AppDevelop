@@ -6,8 +6,8 @@ public class Receipt
     public Guid UserId { get; set; }
 
     public string StoreName { get; set; } = string.Empty;
-    public decimal Amount { get; set; }
-    public DateTimeOffset PurchasedAt { get; set; }
+    public decimal? Amount { get; set; }
+    public DateTimeOffset? PurchasedAt { get; set; }
 
     public string? ImagePath { get; set; }
     public string? ContentType { get; set; }

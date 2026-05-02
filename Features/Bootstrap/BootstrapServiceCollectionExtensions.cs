@@ -7,6 +7,7 @@ using App.Features.Receipt;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using Microsoft.SemanticKernel;
 
 #pragma warning disable SKEXP0070 // Google connector is preview
@@ -26,6 +27,21 @@ public static class BootstrapServiceCollectionExtensions
         services.AddSwaggerGen(c =>
         {
             c.SwaggerDoc("v1", new() { Title = "No More Receipts API", Version = "v1" });
+
+            c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            {
+                Name = "Authorization",
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                BearerFormat = "JWT",
+                In = ParameterLocation.Header,
+                Description = "JWT 토큰만 입력하세요 (앞에 'Bearer ' 붙이지 않음)."
+            });
+
+            c.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("Bearer", hostDocument: doc, externalResource: null)] = new List<string>()
+            });
         });
 
         // Gateway (YARP)

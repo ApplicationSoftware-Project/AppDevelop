@@ -37,6 +37,15 @@ namespace App.Features.AI.Data
                 entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Role).IsRequired().HasMaxLength(50).HasDefaultValue("User");
                 entity.Property(e => e.CreatedAt).IsRequired();
+
+                // 추가 필드
+                entity.Property(e => e.PhoneNumber).HasMaxLength(20);
+                entity.Property(e => e.ProfileImageUrl).HasMaxLength(512);
+                entity.Property(e => e.RefreshToken).HasMaxLength(512);
+
+                // [버그 수정 6] 알림 기본값 true로 수정
+                entity.Property(e => e.EmailNotification).HasDefaultValue(true);
+                entity.Property(e => e.PushNotification).HasDefaultValue(true);
             });
 
             modelBuilder.Entity<ReceiptModel>(entity =>

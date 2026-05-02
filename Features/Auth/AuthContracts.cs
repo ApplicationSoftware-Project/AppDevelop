@@ -55,10 +55,9 @@ public record UserSummary(
     DateTimeOffset CreatedAt,
     DateTimeOffset? LastLoginAt);
 
-// ── 내부 전용 API (타 서비스용) ───────────────────
+// ── 내부 전용 API (IsActive 제거) ─────────────────
 public record InternalUserInfo(
     Guid UserId,
     string Email,
     string DisplayName,
-    string Role,
-    bool IsActive);
+    string Role);

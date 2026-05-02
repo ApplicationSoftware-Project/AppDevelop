@@ -1,12 +1,11 @@
-using App.Features.AI.Data;
-using App.Features.Auth.Models;
-using Google.Apis.Auth.OAuth2.Requests;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using App.Features.AI.Data;
+using App.Features.Auth.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 namespace App.Features.Auth;
 

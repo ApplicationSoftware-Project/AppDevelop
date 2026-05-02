@@ -31,12 +31,13 @@ public static class AuthEndpoints
             .Produces<RefreshTokenResult>()
             .Produces(StatusCodes.Status401Unauthorized);
 
-        // ── 인증 필요 ─────────────────────────────────
+        // [수정 2] /revoke 에서 RequireAuthorization 제거
+        // 액세스 토큰이 만료돼도 리프레시 토큰만으로 로그아웃 가능해야 함
         auth.MapPost("/revoke", Revoke)
-            .WithSummary("로그아웃")
-            .Produces(StatusCodes.Status204NoContent)
-            .RequireAuthorization();
+            .WithSummary("로그아웃 (리프레시 토큰 무효화)")
+            .Produces(StatusCodes.Status204NoContent);
 
+        // ── 인증 필요 ─────────────────────────────────
         auth.MapGet("/me", Me)
             .WithSummary("내 정보 조회")
             .Produces<MeResult>()
@@ -97,9 +98,10 @@ public static class AuthEndpoints
         var (success, error, result) = await authService.LoginAsync(request, db);
         if (!success || result is null)
         {
-            logger.LogWarning("Login 실패. Email={Email}", request.Email);
+            logger.LogWarning("Login 실패. Email={Email}, Reason={Reason}", request.Email, error);
             return TypedResults.Unauthorized();
         }
+        logger.LogInformation("로그인 성공. Email={Email}", result.Email);
         return TypedResults.Ok(result);
     }
 
@@ -193,9 +195,15 @@ public static class AuthEndpoints
         return TypedResults.Ok(users);
     }
 
-    private static async Task<Results<Ok<UserSummary>, NotFound>> AssignRole(
+    private static async Task<Results<Ok<UserSummary>, ValidationProblem, NotFound>> AssignRole(
         AssignRoleRequest request, AppDbContext db)
     {
+        // [보안 수정 5] Role 허용 목록 검증
+        var allowed = new[] { "User", "Admin" };
+        if (!allowed.Contains(request.Role))
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            { ["role"] = [$"허용되지 않는 Role입니다. 허용 목록: {string.Join(", ", allowed)}"] });
+
         var user = await db.Users.FindAsync(request.UserId);
         if (user is null) return TypedResults.NotFound();
 
@@ -213,8 +221,9 @@ public static class AuthEndpoints
         var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
         if (user is null) return TypedResults.NotFound();
 
+        // [버그 수정 7] IsActive 하드코딩 제거 - User 모델에 필드 없으므로 제외
         return TypedResults.Ok(new InternalUserInfo(
-            user.Id, user.Email, user.DisplayName, user.Role, true));
+            user.Id, user.Email, user.DisplayName, user.Role));
     }
 
     // ── 헬퍼 ──────────────────────────────────────────

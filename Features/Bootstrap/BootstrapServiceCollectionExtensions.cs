@@ -5,12 +5,14 @@ using App.Features.Analysis;
 using App.Features.Auth;
 using App.Features.Auth.Grpc;
 using App.Features.Auth.GrpcServices;
+using App.Features.Gateway;
 using App.Features.Receipt;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Microsoft.SemanticKernel;
+using Yarp.ReverseProxy.Transforms.Builder;
 
 #pragma warning disable SKEXP0070 // Google connector is preview
 
@@ -46,9 +48,10 @@ public static class BootstrapServiceCollectionExtensions
             });
         });
 
-        // Gateway (YARP)
+        // Gateway (YARP) + JWT → 헤더 변환
         services.AddReverseProxy()
-            .LoadFromConfig(configuration.GetSection("ReverseProxy"));
+            .LoadFromConfig(configuration.GetSection("ReverseProxy"))
+            .AddTransforms<JwtToHeaderTransformProvider>();
 
         // JWT Authentication
         var jwtSecret = configuration["Jwt:Secret"]

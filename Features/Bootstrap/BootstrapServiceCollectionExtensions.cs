@@ -1,5 +1,6 @@
 using System.Text;
 using App.Features.AI.Data;
+using App.Features.AI.Pipeline;
 using App.Features.AI.Services;
 using App.Features.Analysis;
 using App.Features.Auth;
@@ -86,6 +87,10 @@ public static class BootstrapServiceCollectionExtensions
         var kernelBuilder = Kernel.CreateBuilder();
         kernelBuilder.AddGoogleAIGeminiChatCompletion(modelId: geminiModel, apiKey: geminiKey);
         var kernel = kernelBuilder.Build();
+
+        // 멀티스텝 파이프라인 플러그인 등록
+        kernel.Plugins.AddFromObject(new ReceiptAnalysisPlugin(), "ReceiptAnalysis");
+
         services.AddSingleton(kernel);
 
         // Services - AI
@@ -94,6 +99,7 @@ public static class BootstrapServiceCollectionExtensions
         services.AddScoped<AiConfirmationService>();
         services.AddScoped<AiLogQueryService>();
         services.AddScoped<AiDashboardService>();
+        services.AddScoped<AiReceiptPipelineService>();
 
         // Services - Analysis
         services.AddScoped<AnalysisService>();

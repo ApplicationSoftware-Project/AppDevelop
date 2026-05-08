@@ -1,5 +1,6 @@
 using App.Features.AI.Data;
 using App.Features.AI.Models;
+using App.Features.AI.Pipeline;
 using App.Features.AI.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -94,6 +95,16 @@ public static class AiEndpoints
             .WithDescription(AiEndpointDescriptions.DemoReset)
             .Produces<AiDemoResetResult>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
+
+        app.MapPost("/api/ai/analyze-receipt", AnalyzeReceipt)
+            .WithName("AnalyzeReceipt")
+            .WithSummary("멀티스텝 파이프라인 영수증 분석 (정규화 → 파싱 → 분류)")
+            .Accepts<AnalyzeReceiptRequest>("application/json")
+            .Produces<ReceiptAnalysisResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status500InternalServerError)
+            .ProducesProblem(StatusCodes.Status502BadGateway);
     }
 
     private static async Task<Results<Ok<SuggestCategoryResult>, ValidationProblem, ProblemHttpResult>> SuggestCategory(
@@ -391,6 +402,47 @@ public static class AiEndpoints
             totalCount, confirmedCount, correctCount, pendingCount);
 
         return TypedResults.Ok(new AiDemoSeedResult(totalCount, confirmedCount, correctCount, pendingCount));
+    }
+
+    private static async Task<Results<Ok<ReceiptAnalysisResult>, ValidationProblem, ProblemHttpResult>> AnalyzeReceipt(
+        AnalyzeReceiptRequest request,
+        Kernel k,
+        AppDbContext db,
+        AiReceiptPipelineService pipeline,
+        ILogger<Program> logger,
+        CancellationToken ct)
+    {
+        if (request.ReceiptId == Guid.Empty)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(request.ReceiptId)] = ["receiptId는 비어 있을 수 없습니다."]
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.OcrText))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(request.OcrText)] = ["ocrText는 비어 있을 수 없습니다."]
+            });
+        }
+
+        try
+        {
+            var result = await pipeline.AnalyzeAsync(request, k, db, ct);
+            logger.LogInformation(
+                "파이프라인 분석 완료. ReceiptId={ReceiptId}, Category={Category}, Confidence={Confidence}",
+                request.ReceiptId, result.Category, result.Confidence);
+            return TypedResults.Ok(result);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "파이프라인 분석 실패. ReceiptId={ReceiptId}", request.ReceiptId);
+            return TypedResults.Problem(
+                detail: "AI 파이프라인 처리 중 오류가 발생했습니다.",
+                statusCode: StatusCodes.Status502BadGateway);
+        }
     }
 
     private static async Task<Results<Ok<AiDemoResetResult>, ProblemHttpResult>> ResetAiDemoData(

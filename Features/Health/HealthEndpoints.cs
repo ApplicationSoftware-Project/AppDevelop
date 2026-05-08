@@ -19,11 +19,11 @@ public static class HealthEndpoints
 
         app.MapGet("/api/health/ai", (IConfiguration config) =>
         {
-            var hasApiKey = !string.IsNullOrWhiteSpace(config["AI:OpenAIKey"]);
+            var hasApiKey = !string.IsNullOrWhiteSpace(config["AI:GeminiKey"]);
             return TypedResults.Ok(new
             {
                 Service = "AI Orchestrator",
-                Status = hasApiKey ? "Ready" : "MissingOpenAIKey",
+                Status = hasApiKey ? "Ready" : "MissingGeminiKey",
                 UtcNow = DateTimeOffset.UtcNow
             });
         })

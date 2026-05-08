@@ -2,6 +2,7 @@ using App.Features.AI;
 using App.Features.AI.Data;
 using App.Features.Analysis;
 using App.Features.Auth;
+using App.Features.Auth.GrpcServices;
 using App.Features.Bootstrap;
 using App.Features.Gateway;
 using App.Features.Health;
@@ -36,5 +37,11 @@ app.MapAiEndpoints();
 AnalysisEndpoints.MapAnalysisEndpoints(app);
 app.MapReceiptEndpoints();
 app.MapGatewayEndpoints();
+
+// gRPC 서비스 매핑
+app.MapGrpcService<UserGrpcService>();
+
+if (app.Environment.IsDevelopment())
+    app.MapGrpcReflectionService();
 
 app.Run();

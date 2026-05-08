@@ -26,6 +26,13 @@ namespace App.Features.AI.Data
                 entity.Property(e => e.FinalCategory).HasMaxLength(200);
                 entity.Property(e => e.Confidence).HasPrecision(5, 4);
                 entity.Property(e => e.CreatedAt).IsRequired();
+
+                // ì •í™•ë„ ì§‘ê³„ ì¿¼ë¦¬: WHERE IsCorrect ... GROUP BY CreatedAt ìµœì í™”
+                entity.HasIndex(e => new { e.IsCorrect, e.CreatedAt })
+                      .HasDatabaseName("IX_AiInferenceLogs_IsCorrect_CreatedAt");
+                // ReceiptId ê¸°ì¤€ ì¡°íšŒ (ì˜ìˆ˜ì¦ë³„ AI ë¡œê·¸)
+                entity.HasIndex(e => e.ReceiptId)
+                      .HasDatabaseName("IX_AiInferenceLogs_ReceiptId");
             });
 
             modelBuilder.Entity<User>(entity =>
@@ -38,12 +45,12 @@ namespace App.Features.AI.Data
                 entity.Property(e => e.Role).IsRequired().HasMaxLength(50).HasDefaultValue("User");
                 entity.Property(e => e.CreatedAt).IsRequired();
 
-                // Ãß°¡ ÇÊµå
+                // ï¿½ß°ï¿½ ï¿½Êµï¿½
                 entity.Property(e => e.PhoneNumber).HasMaxLength(20);
                 entity.Property(e => e.ProfileImageUrl).HasMaxLength(512);
                 entity.Property(e => e.RefreshToken).HasMaxLength(512);
 
-                // [¹ö±× ¼öÁ¤ 6] ¾Ë¸² ±âº»°ª true·Î ¼öÁ¤
+                // [ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ 6] ï¿½Ë¸ï¿½ ï¿½âº»ï¿½ï¿½ trueï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
                 entity.Property(e => e.EmailNotification).HasDefaultValue(true);
                 entity.Property(e => e.PushNotification).HasDefaultValue(true);
             });

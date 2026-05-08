@@ -2,6 +2,9 @@ using System.Text;
 using App.Features.AI.Data;
 using App.Features.AI.Pipeline;
 using App.Features.AI.Services;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
 using App.Features.Analysis;
 using App.Features.Auth;
 using App.Features.Auth.Grpc;
@@ -121,6 +124,26 @@ public static class BootstrapServiceCollectionExtensions
         {
             o.Address = new Uri(grpcAuthUrl);
         });
+
+        // OpenTelemetry 분산 추적 + 메트릭
+        var serviceName    = configuration["OpenTelemetry:ServiceName"]    ?? "no-more-receipts";
+        var serviceVersion = configuration["OpenTelemetry:ServiceVersion"] ?? "1.0.0";
+
+        services.AddOpenTelemetry()
+            .ConfigureResource(r => r.AddService(serviceName, serviceVersion: serviceVersion))
+            .WithTracing(tracing => tracing
+                .AddAspNetCoreInstrumentation(o =>
+                {
+                    o.RecordException = true;
+                    o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/swagger");
+                })
+                .AddHttpClientInstrumentation()
+                .AddSource(AiPipelineActivitySource.Name)
+                .AddConsoleExporter())
+            .WithMetrics(metrics => metrics
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddConsoleExporter());
 
         return services;
     }

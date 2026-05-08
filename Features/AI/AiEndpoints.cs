@@ -96,6 +96,13 @@ public static class AiEndpoints
             .Produces<AiDemoResetResult>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
+        app.MapPost("/api/ai/demo/seed/bulk", BulkSeedAiDemoData)
+            .WithName("BulkSeedAiDemoData")
+            .WithSummary("대용량 AI 샘플 데이터 생성 (최대 2000건, 날짜 분산)")
+            .Produces<AiDemoBulkSeedResult>(StatusCodes.Status200OK)
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
+
         app.MapPost("/api/ai/analyze-receipt", AnalyzeReceipt)
             .WithName("AnalyzeReceipt")
             .WithSummary("멀티스텝 파이프라인 영수증 분석 (정규화 → 파싱 → 분류)")
@@ -402,6 +409,90 @@ public static class AiEndpoints
             totalCount, confirmedCount, correctCount, pendingCount);
 
         return TypedResults.Ok(new AiDemoSeedResult(totalCount, confirmedCount, correctCount, pendingCount));
+    }
+
+    private static async Task<Results<Ok<AiDemoBulkSeedResult>, ValidationProblem, ProblemHttpResult>> BulkSeedAiDemoData(
+        int? total,
+        int? days,
+        AppDbContext db,
+        ILogger<Program> logger)
+    {
+        var totalCount = total ?? 500;
+        if (totalCount < 1 || totalCount > 2000)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(total)] = ["total은 1 이상 2000 이하여야 합니다."]
+            });
+        }
+
+        var spreadDays = days ?? 90;
+        if (spreadDays < 1 || spreadDays > 365)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(days)] = ["days는 1 이상 365 이하여야 합니다."]
+            });
+        }
+
+        var confirmedCount = (int)Math.Round(totalCount * 0.72);
+        var now = DateTimeOffset.UtcNow;
+        var logs = new List<AiInferenceLog>(capacity: totalCount);
+        var correctCount = 0;
+        var rng = new Random(42); // 재현 가능한 시드
+
+        for (var i = 0; i < totalCount; i++)
+        {
+            var suggestedCategory = AiCategoryCatalog.Options[i % AiCategoryCatalog.Options.Length];
+            var isConfirmed = i < confirmedCount;
+            // 정확도 약 78% 분포
+            var isCorrect = isConfirmed ? (bool?)(rng.NextDouble() < 0.78) : null;
+            var finalCategory = isConfirmed
+                ? (isCorrect == true
+                    ? suggestedCategory
+                    : AiCategoryCatalog.Options[(i + 2) % AiCategoryCatalog.Options.Length])
+                : null;
+
+            if (isCorrect == true) correctCount++;
+
+            // 날짜를 spreadDays 범위에 걸쳐 균등 분산
+            var offsetSeconds = (long)((double)i / totalCount * spreadDays * 86400);
+            var createdAt = now.AddSeconds(-(spreadDays * 86400 - offsetSeconds));
+
+            // 신뢰도: 0.45 ~ 0.99 사이의 현실적 분포
+            var confidence = Math.Round(Math.Clamp(0.45 + rng.NextDouble() * 0.54, 0d, 1d), 4);
+
+            logs.Add(new AiInferenceLog
+            {
+                ReceiptId         = Guid.NewGuid(),
+                SuggestedCategory = suggestedCategory,
+                Confidence        = confidence,
+                FinalCategory     = finalCategory,
+                IsCorrect         = isCorrect,
+                CreatedAt         = createdAt,
+                UpdatedAt         = isConfirmed ? createdAt.AddMinutes(rng.Next(1, 60)) : null
+            });
+        }
+
+        try
+        {
+            await db.AiInferenceLogs.AddRangeAsync(logs);
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "bulk-seed 처리 실패. total={Total}, days={Days}", totalCount, spreadDays);
+            return TypedResults.Problem(
+                detail: "대용량 샘플 데이터 저장 중 오류가 발생했습니다.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+
+        logger.LogInformation("bulk-seed 완료. inserted={Total}, confirmed={Confirmed}, correct={Correct}, days={Days}",
+            totalCount, confirmedCount, correctCount, spreadDays);
+
+        return TypedResults.Ok(new AiDemoBulkSeedResult(
+            totalCount, confirmedCount, correctCount,
+            totalCount - confirmedCount, spreadDays));
     }
 
     private static async Task<Results<Ok<ReceiptAnalysisResult>, ValidationProblem, ProblemHttpResult>> AnalyzeReceipt(

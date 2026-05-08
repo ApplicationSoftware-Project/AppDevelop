@@ -4,6 +4,7 @@ using App.Features.AI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace App.Features.AI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class V1__AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260508063512_V6__AddAiInferenceLogIndexes")]
+    partial class V6__AddAiInferenceLogIndexes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

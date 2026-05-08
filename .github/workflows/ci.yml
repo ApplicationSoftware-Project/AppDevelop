@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 
 on:
   push:
@@ -22,8 +22,19 @@ jobs:
         with:
           global-json-file: ./global.json
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
       - name: Restore
         run: dotnet restore App.sln
 
       - name: Build
         run: dotnet build App.sln --configuration Release --no-restore
+
+      - name: Publish (publishability verification)
+        run: dotnet publish App.csproj --configuration Release --no-restore --output ./publish

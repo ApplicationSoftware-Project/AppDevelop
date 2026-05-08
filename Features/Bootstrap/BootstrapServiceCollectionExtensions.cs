@@ -3,6 +3,8 @@ using App.Features.AI.Data;
 using App.Features.AI.Services;
 using App.Features.Analysis;
 using App.Features.Auth;
+using App.Features.Auth.Grpc;
+using App.Features.Auth.GrpcServices;
 using App.Features.Receipt;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -99,6 +101,17 @@ public static class BootstrapServiceCollectionExtensions
         // Services - Receipt
         services.AddScoped<OcrService>();
         services.AddScoped<ReceiptService>();
+
+        // gRPC 서버
+        services.AddGrpc();
+        services.AddGrpcReflection();
+
+        // gRPC 클라이언트 (Receipt, Analysis 등 다른 서비스가 Auth gRPC를 호출할 때 사용)
+        var grpcAuthUrl = configuration["Grpc:AuthServiceUrl"] ?? "https://localhost:65289";
+        services.AddGrpcClient<UserService.UserServiceClient>(o =>
+        {
+            o.Address = new Uri(grpcAuthUrl);
+        });
 
         return services;
     }

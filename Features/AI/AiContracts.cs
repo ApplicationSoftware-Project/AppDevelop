@@ -40,3 +40,17 @@ public sealed record AiDemoChecklistStep(
     string? ExampleResponseJson);
 public sealed record AiDemoSeedResult(int InsertedCount, int ConfirmedCount, int CorrectCount, int PendingCount);
 public sealed record AiDemoResetResult(int DeletedCount);
+
+// 대용량 시드
+public sealed record AiDemoBulkSeedResult(int InsertedCount, int ConfirmedCount, int CorrectCount, int PendingCount, int SpreadDays);
+
+// 멀티스텝 파이프라인 계약
+public sealed record AnalyzeReceiptRequest(Guid ReceiptId, string OcrText);
+public sealed record ParsedReceiptInfo(string? StoreName, string[]? Items, decimal? TotalAmount, string? Date);
+public sealed record ReceiptClassificationAiResponse(string Category, double Confidence, string? Reasoning);
+public sealed record ReceiptAnalysisResult(
+    Guid LogId,
+    ParsedReceiptInfo ParsedInfo,
+    string Category,
+    double Confidence,
+    string Reasoning);

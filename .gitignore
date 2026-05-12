@@ -408,6 +408,9 @@ docker-compose.override.yml # 로컬 전용 도커 설정 (팀원마다 다를 �
 .DS_Store              # macOS 임시 파일
 Thumbs.db              # Windows 썸네일 캐시
 
+# 자동생성 API 스펙 파일
+swagger.json
+
 # local env / secrets
 .env
 .env.*.local

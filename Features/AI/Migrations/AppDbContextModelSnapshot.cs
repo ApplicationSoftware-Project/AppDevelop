@@ -4,7 +4,6 @@ using App.Features.AI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -12,11 +11,9 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace App.Features.AI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260501120046_V4__MakePurchasedAtNullable")]
-    partial class V4__MakePurchasedAtNullable
+    partial class AppDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -58,6 +55,12 @@ namespace App.Features.AI.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ReceiptId")
+                        .HasDatabaseName("IX_AiInferenceLogs_ReceiptId");
+
+                    b.HasIndex("IsCorrect", "CreatedAt")
+                        .HasDatabaseName("IX_AiInferenceLogs_IsCorrect_CreatedAt");
+
                     b.ToTable("AiInferenceLogs");
                 });
 
@@ -80,12 +83,37 @@ namespace App.Features.AI.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<bool>("EmailNotification")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<DateTimeOffset?>("LastLoginAt")
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("ProfileImageUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<bool>("PushNotification")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("RefreshToken")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<DateTimeOffset?>("RefreshTokenExpiry")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -115,7 +143,7 @@ namespace App.Features.AI.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<decimal>("Amount")
+                    b.Property<decimal?>("Amount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 

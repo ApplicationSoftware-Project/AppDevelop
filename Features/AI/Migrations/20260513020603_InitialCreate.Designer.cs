@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace App.Features.AI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260508063512_V6__AddAiInferenceLogIndexes")]
-    partial class V6__AddAiInferenceLogIndexes
+    [Migration("20260513020603_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

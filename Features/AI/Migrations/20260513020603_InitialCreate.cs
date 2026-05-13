@@ -6,11 +6,29 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace App.Features.AI.Migrations
 {
     /// <inheritdoc />
-    public partial class V2__AddUsersAndReceipts : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.CreateTable(
+                name: "AiInferenceLogs",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ReceiptId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SuggestedCategory = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Confidence = table.Column<double>(type: "float(5)", precision: 5, scale: 4, nullable: false),
+                    FinalCategory = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    IsCorrect = table.Column<bool>(type: "bit", nullable: true),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AiInferenceLogs", x => x.Id);
+                });
+
             migrationBuilder.CreateTable(
                 name: "Receipts",
                 columns: table => new
@@ -18,8 +36,10 @@ namespace App.Features.AI.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     StoreName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    Amount = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
-                    PurchasedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: true),
+                    PurchasedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    ImagePath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    ContentType = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     RawOcrText = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Category = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
                     AiSuggestedCategory = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
@@ -42,6 +62,12 @@ namespace App.Features.AI.Migrations
                     PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     DisplayName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Role = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false, defaultValue: "User"),
+                    PhoneNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    ProfileImageUrl = table.Column<string>(type: "nvarchar(512)", maxLength: 512, nullable: true),
+                    EmailNotification = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    PushNotification = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    RefreshToken = table.Column<string>(type: "nvarchar(512)", maxLength: 512, nullable: true),
+                    RefreshTokenExpiry = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
                     CreatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
                     LastLoginAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
                 },
@@ -49,6 +75,16 @@ namespace App.Features.AI.Migrations
                 {
                     table.PrimaryKey("PK_Users", x => x.Id);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AiInferenceLogs_IsCorrect_CreatedAt",
+                table: "AiInferenceLogs",
+                columns: new[] { "IsCorrect", "CreatedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AiInferenceLogs_ReceiptId",
+                table: "AiInferenceLogs",
+                column: "ReceiptId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Receipts_UserId_PurchasedAt",
@@ -65,6 +101,9 @@ namespace App.Features.AI.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "AiInferenceLogs");
+
             migrationBuilder.DropTable(
                 name: "Receipts");
 

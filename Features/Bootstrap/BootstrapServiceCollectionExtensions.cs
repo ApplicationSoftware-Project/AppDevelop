@@ -28,7 +28,7 @@ public static class BootstrapServiceCollectionExtensions
     {
         // Database
         services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+            options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
         // Swagger
         services.AddEndpointsApiExplorer();

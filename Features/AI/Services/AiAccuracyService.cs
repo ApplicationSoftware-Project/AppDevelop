@@ -24,16 +24,18 @@ public sealed class AiAccuracyService
         var startUtc = startDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var endUtcExclusive = startUtc.AddDays(days);
 
-        var dailyGrouped = await db.AiInferenceLogs
+        var startUtcDate = startUtc.Date;
+        var dailyGrouped = (await db.AiInferenceLogs
             .Where(x => x.IsCorrect.HasValue && x.CreatedAt >= startUtc && x.CreatedAt < endUtcExclusive)
-            .GroupBy(x => EF.Functions.DateDiffDay(startUtc, x.CreatedAt))
+            .GroupBy(x => x.CreatedAt.Date)
             .Select(g => new
             {
-                DayOffset = g.Key,
+                Date = g.Key,
                 ConfirmedCount = g.Count(),
                 CorrectCount = g.Sum(x => x.IsCorrect == true ? 1 : 0)
             })
-            .ToDictionaryAsync(x => x.DayOffset);
+            .ToListAsync())
+            .ToDictionary(x => (int)(x.Date - startUtcDate).TotalDays);
 
         var dailyStats = Enumerable.Range(0, days)
             .Select(offset =>
@@ -66,16 +68,18 @@ public sealed class AiAccuracyService
         var startUtc = startWeek.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var endUtcExclusive = startUtc.AddDays(weeks * 7);
 
-        var dailyGrouped = await db.AiInferenceLogs
+        var startUtcDate = startUtc.Date;
+        var dailyGrouped = (await db.AiInferenceLogs
             .Where(x => x.IsCorrect.HasValue && x.CreatedAt >= startUtc && x.CreatedAt < endUtcExclusive)
-            .GroupBy(x => EF.Functions.DateDiffDay(startUtc, x.CreatedAt))
+            .GroupBy(x => x.CreatedAt.Date)
             .Select(g => new
             {
-                DayOffset = g.Key,
+                Date = g.Key,
                 ConfirmedCount = g.Count(),
                 CorrectCount = g.Sum(x => x.IsCorrect == true ? 1 : 0)
             })
-            .ToDictionaryAsync(x => x.DayOffset);
+            .ToListAsync())
+            .ToDictionary(x => (int)(x.Date - startUtcDate).TotalDays);
 
         var weeklyStats = Enumerable.Range(0, weeks)
             .Select(offset => new

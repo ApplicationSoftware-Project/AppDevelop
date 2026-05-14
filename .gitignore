@@ -426,3 +426,7 @@ App/Data/DesignTimeDbContextFactory.cs
 storage/
 # Claude Code 세션 데이터 (개인 설정)
 .claude/
+
+# Docker Compose local overrides (per-developer tweaks)
+compose.override.yaml
+compose.override.yml

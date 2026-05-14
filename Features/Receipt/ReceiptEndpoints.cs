@@ -54,6 +54,39 @@ public static class ReceiptEndpoints
             .Produces<ApiError>(StatusCodes.Status404NotFound)
             .Produces<ApiError>(StatusCodes.Status401Unauthorized);
 
+        // ── [추가] 영수증 기초 정보 수정 ───────────────────
+        group.MapPut("/{receiptId:guid}", Update)
+            .WithName("UpdateReceipt")
+            .WithSummary("영수증 기초 정보 수정 (상호명·금액·날짜·카테고리)")
+            .WithDescription("""
+                잘못 올라간 영수증의 기초 정보를 수정합니다.
+                null로 보낸 필드는 변경되지 않습니다 (Partial Update).
+
+                요청 예시:
+                {
+                  "storeName": "스타벅스",
+                  "amount": 4500,
+                  "purchasedAt": "2026-01-10/12:00:00",
+                  "category": "카페"
+                }
+
+                성공 응답 예시(200):
+                {
+                  "receiptId": "...",
+                  "storeName": "스타벅스",
+                  "amount": 4500,
+                  "purchasedAt": "2026-01-10/03:00:00",
+                  "category": "카페",
+                  "status": "AiCategorized",
+                  "updatedAt": "2026-01-10/05:00:00"
+                }
+                """)
+            .Accepts<UpdateReceiptRequest>("application/json")
+            .Produces<UpdateReceiptResult>(StatusCodes.Status200OK)
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .Produces<ApiError>(StatusCodes.Status404NotFound)
+            .Produces<ApiError>(StatusCodes.Status401Unauthorized);
+
         group.MapDelete("/{receiptId:guid}", Delete)
             .WithName("DeleteReceipt")
             .WithSummary("영수증 삭제 (이미지 파일 포함)")
@@ -127,6 +160,69 @@ public static class ReceiptEndpoints
         }
 
         var result = await receiptService.GetListAsync(userId, page, pageSize, db);
+        return TypedResults.Ok(result);
+    }
+
+    // ── [추가] 영수증 기초 정보 수정 핸들러 ─────────────────
+    private static async Task<Results<Ok<UpdateReceiptResult>, ValidationProblem, JsonHttpResult<ApiError>>> Update(
+        Guid receiptId,
+        UpdateReceiptRequest request,
+        ClaimsPrincipal principal,
+        ReceiptService receiptService,
+        AppDbContext db,
+        ILogger<Program> logger,
+        CancellationToken ct)
+    {
+        if (!TryGetUserId(principal, out var userId))
+            return Unauthorized();
+
+        // 1. 요청 전체가 빈 경우 거부
+        if (request.StoreName is null && request.Amount is null
+            && request.PurchasedAt is null && request.Category is null)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["request"] = ["수정할 필드를 하나 이상 입력하세요."]
+            });
+        }
+
+        // 2. 상호명 검증 (공백 검사 + 길이 검사 결합)
+        if (request.StoreName is not null)
+        {
+            if (string.IsNullOrWhiteSpace(request.StoreName))
+            {
+                return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    [nameof(request.StoreName)] = ["상호명은 공백만으로 설정할 수 없습니다."]
+                });
+            }
+
+            if (request.StoreName.Trim().Length > 200)
+            {
+                return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    [nameof(request.StoreName)] = ["상호명은 200자 이하여야 합니다."]
+                });
+            }
+        }
+
+        // 3. 금액 음수 거부
+        if (request.Amount is < 0)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(request.Amount)] = ["금액은 0 이상이어야 합니다."]
+            });
+        }
+
+        var result = await receiptService.UpdateAsync(receiptId, userId, request, db, ct);
+        if (result is null)
+            return NotFoundJson("영수증을 찾을 수 없습니다.");
+
+        logger.LogInformation(
+            "영수증 수정 완료. ReceiptId={ReceiptId}, UserId={UserId}, StoreName={StoreName}",
+            receiptId, userId, result.StoreName);
+
         return TypedResults.Ok(result);
     }
 

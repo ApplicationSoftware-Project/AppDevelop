@@ -166,6 +166,47 @@ public class ReceiptService(
         return new ConfirmReceiptCategoryResult(receiptId, finalCategory, aiWasCorrect);
     }
 
+    // ── [추가] 영수증 기초 정보 수정 ──────────────────────
+    /// <summary>
+    /// 잘못 올라간 영수증의 상호명/금액/날짜/카테고리를 수동 수정합니다.
+    /// null 로 보낸 필드는 변경하지 않습니다(Partial Update).
+    /// </summary>
+    public async Task<UpdateReceiptResult?> UpdateAsync(
+        Guid receiptId, Guid userId, UpdateReceiptRequest request, AppDbContext db,
+        CancellationToken ct = default)
+    {
+        var receipt = await db.Receipts
+            .FirstOrDefaultAsync(r => r.Id == receiptId && r.UserId == userId, ct);
+        if (receipt is null) return null;
+
+        // null이 아닌 필드만 덮어씀
+        if (!string.IsNullOrWhiteSpace(request.StoreName))
+            receipt.StoreName = request.StoreName.Trim()[..Math.Min(request.StoreName.Trim().Length, 200)];
+
+        if (request.Amount.HasValue)
+            receipt.Amount = request.Amount.Value >= 0 ? request.Amount : receipt.Amount;
+
+        if (request.PurchasedAt.HasValue)
+            receipt.PurchasedAt = request.PurchasedAt;
+
+        if (request.Category is not null)
+            receipt.Category = string.IsNullOrWhiteSpace(request.Category)
+                ? null
+                : request.Category.Trim()[..Math.Min(request.Category.Trim().Length, 200)];
+
+        await db.SaveChangesAsync(ct);
+
+        var updatedAt = DateTimeOffset.UtcNow;
+        return new UpdateReceiptResult(
+            receipt.Id,
+            receipt.StoreName,
+            receipt.Amount,
+            receipt.PurchasedAt,
+            receipt.Category,
+            receipt.Status,
+            updatedAt);
+    }
+
     private void TryDeleteFile(string absolutePath, Guid receiptId)
     {
         try

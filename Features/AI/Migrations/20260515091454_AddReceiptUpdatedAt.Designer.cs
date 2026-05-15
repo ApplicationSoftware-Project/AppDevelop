@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace App.Features.AI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260515083636_AddReceiptUpdatedAt")]
+    [Migration("20260515091454_AddReceiptUpdatedAt")]
     partial class AddReceiptUpdatedAt
     {
         /// <inheritdoc />
@@ -182,6 +182,9 @@ namespace App.Features.AI.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");

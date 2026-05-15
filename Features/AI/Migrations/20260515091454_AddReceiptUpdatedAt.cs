@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace App.Features.AI.Migrations
 {
     /// <inheritdoc />
-    public partial class SyncModel : Migration
+    public partial class AddReceiptUpdatedAt : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

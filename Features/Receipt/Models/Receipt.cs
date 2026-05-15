@@ -20,6 +20,9 @@ public class Receipt
     public ReceiptStatus Status { get; set; } = ReceiptStatus.Pending;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? ProcessedAt { get; set; }
+
+    // [추가] 영수증 기초 정보 수정 시 기록되는 타임스탬프
+    public DateTimeOffset? UpdatedAt { get; set; }
 }
 
 public enum ReceiptStatus

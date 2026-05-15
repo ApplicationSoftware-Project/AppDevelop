@@ -166,11 +166,7 @@ public class ReceiptService(
         return new ConfirmReceiptCategoryResult(receiptId, finalCategory, aiWasCorrect);
     }
 
-    // ── [추가] 영수증 기초 정보 수정 ──────────────────────
-    /// <summary>
-    /// 잘못 올라간 영수증의 상호명/금액/날짜/카테고리를 수동 수정합니다.
-    /// null 로 보낸 필드는 변경하지 않습니다(Partial Update).
-    /// </summary>
+    // ── 영수증 기초 정보 수정 ──────────────────────────
     public async Task<UpdateReceiptResult?> UpdateAsync(
         Guid receiptId, Guid userId, UpdateReceiptRequest request, AppDbContext db,
         CancellationToken ct = default)
@@ -179,24 +175,28 @@ public class ReceiptService(
             .FirstOrDefaultAsync(r => r.Id == receiptId && r.UserId == userId, ct);
         if (receipt is null) return null;
 
-        // null이 아닌 필드만 덮어씀
+        // [이슈 4 수정] 길이·음수 검증은 엔드포인트에서 이미 400 처리 → 서비스는 단순 대입
         if (!string.IsNullOrWhiteSpace(request.StoreName))
-            receipt.StoreName = request.StoreName.Trim()[..Math.Min(request.StoreName.Trim().Length, 200)];
+            receipt.StoreName = request.StoreName.Trim();
 
+        // [이슈 5 수정] 음수 검증은 엔드포인트에서 이미 400 처리 → 조건 제거
         if (request.Amount.HasValue)
-            receipt.Amount = request.Amount.Value >= 0 ? request.Amount : receipt.Amount;
+            receipt.Amount = request.Amount.Value;
 
+        // [이슈 2 수정] PostgreSQL은 UTC(offset=0)만 허용 → 반드시 ToUniversalTime()
         if (request.PurchasedAt.HasValue)
-            receipt.PurchasedAt = request.PurchasedAt;
+            receipt.PurchasedAt = request.PurchasedAt.Value.ToUniversalTime();
 
         if (request.Category is not null)
             receipt.Category = string.IsNullOrWhiteSpace(request.Category)
                 ? null
-                : request.Category.Trim()[..Math.Min(request.Category.Trim().Length, 200)];
+                : request.Category.Trim();
 
+        // [이슈 1 수정] SaveChanges 전에 UpdatedAt 기록 → DB에 실제로 저장됨
+        receipt.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
 
-        var updatedAt = DateTimeOffset.UtcNow;
+        // DB에 저장된 receipt.UpdatedAt 값을 그대로 반환 (가짜 타임스탬프 제거)
         return new UpdateReceiptResult(
             receipt.Id,
             receipt.StoreName,
@@ -204,7 +204,7 @@ public class ReceiptService(
             receipt.PurchasedAt,
             receipt.Category,
             receipt.Status,
-            updatedAt);
+            receipt.UpdatedAt.Value);
     }
 
     private void TryDeleteFile(string absolutePath, Guid receiptId)

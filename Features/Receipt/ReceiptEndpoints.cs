@@ -54,10 +54,10 @@ public static class ReceiptEndpoints
             .Produces<ApiError>(StatusCodes.Status404NotFound)
             .Produces<ApiError>(StatusCodes.Status401Unauthorized);
 
-        // ── [추가] 영수증 기초 정보 수정 ───────────────────
         group.MapPut("/{receiptId:guid}", Update)
             .WithName("UpdateReceipt")
             .WithSummary("영수증 기초 정보 수정 (상호명·금액·날짜·카테고리)")
+            // [이슈 3 수정] Swagger 예시 날짜 포맷 ISO 8601로 수정 (슬래시 → T 구분자)
             .WithDescription("""
                 잘못 올라간 영수증의 기초 정보를 수정합니다.
                 null로 보낸 필드는 변경되지 않습니다 (Partial Update).
@@ -66,19 +66,19 @@ public static class ReceiptEndpoints
                 {
                   "storeName": "스타벅스",
                   "amount": 4500,
-                  "purchasedAt": "2026-01-10/12:00:00",
+                  "purchasedAt": "2026-01-10T12:00:00+09:00",
                   "category": "카페"
                 }
 
                 성공 응답 예시(200):
                 {
-                  "receiptId": "...",
+                  "receiptId": "11111111-1111-1111-1111-111111111111",
                   "storeName": "스타벅스",
                   "amount": 4500,
-                  "purchasedAt": "2026-01-10/03:00:00",
+                  "purchasedAt": "2026-01-10T03:00:00+00:00",
                   "category": "카페",
                   "status": "AiCategorized",
-                  "updatedAt": "2026-01-10/05:00:00"
+                  "updatedAt": "2026-01-10T05:00:00+00:00"
                 }
                 """)
             .Accepts<UpdateReceiptRequest>("application/json")
@@ -163,7 +163,7 @@ public static class ReceiptEndpoints
         return TypedResults.Ok(result);
     }
 
-    // ── [추가] 영수증 기초 정보 수정 핸들러 ─────────────────
+    // [이슈 4 수정] 검증 레이어를 엔드포인트 한 곳으로 통일, 서비스의 truncate 제거
     private static async Task<Results<Ok<UpdateReceiptResult>, ValidationProblem, JsonHttpResult<ApiError>>> Update(
         Guid receiptId,
         UpdateReceiptRequest request,
@@ -176,7 +176,7 @@ public static class ReceiptEndpoints
         if (!TryGetUserId(principal, out var userId))
             return Unauthorized();
 
-        // 1. 요청 전체가 빈 경우 거부
+        // 수정할 필드가 하나도 없으면 거부
         if (request.StoreName is null && request.Amount is null
             && request.PurchasedAt is null && request.Category is null)
         {
@@ -186,27 +186,16 @@ public static class ReceiptEndpoints
             });
         }
 
-        // 2. 상호명 검증 (공백 검사 + 길이 검사 결합)
-        if (request.StoreName is not null)
+        // 상호명 200자 초과 → 400 (서비스에서 truncate 제거했으므로 여기서만 검증)
+        if (request.StoreName is not null && request.StoreName.Trim().Length > 200)
         {
-            if (string.IsNullOrWhiteSpace(request.StoreName))
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             {
-                return TypedResults.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    [nameof(request.StoreName)] = ["상호명은 공백만으로 설정할 수 없습니다."]
-                });
-            }
-
-            if (request.StoreName.Trim().Length > 200)
-            {
-                return TypedResults.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    [nameof(request.StoreName)] = ["상호명은 200자 이하여야 합니다."]
-                });
-            }
+                [nameof(request.StoreName)] = ["상호명은 200자 이하여야 합니다."]
+            });
         }
 
-        // 3. 금액 음수 거부
+        // 음수 금액 → 400 (서비스에서 조건 제거했으므로 여기서만 검증)
         if (request.Amount is < 0)
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
@@ -220,8 +209,8 @@ public static class ReceiptEndpoints
             return NotFoundJson("영수증을 찾을 수 없습니다.");
 
         logger.LogInformation(
-            "영수증 수정 완료. ReceiptId={ReceiptId}, UserId={UserId}, StoreName={StoreName}",
-            receiptId, userId, result.StoreName);
+            "영수증 수정 완료. ReceiptId={ReceiptId}, UserId={UserId}, UpdatedAt={UpdatedAt}",
+            receiptId, userId, result.UpdatedAt);
 
         return TypedResults.Ok(result);
     }

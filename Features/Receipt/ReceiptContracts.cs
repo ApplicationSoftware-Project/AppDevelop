@@ -54,8 +54,6 @@ public record ConfirmReceiptCategoryResult(
 
 public record ApiError(string Message);
 
-// ── 영수증 기초 정보 수정 ─────────────────────────────
-// null 로 보낸 필드는 변경하지 않음(Partial Update)
 public record UpdateReceiptRequest(
     string? StoreName,
     decimal? Amount,

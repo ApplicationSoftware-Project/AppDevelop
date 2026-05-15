@@ -57,7 +57,6 @@ public static class ReceiptEndpoints
         group.MapPut("/{receiptId:guid}", Update)
             .WithName("UpdateReceipt")
             .WithSummary("영수증 기초 정보 수정 (상호명·금액·날짜·카테고리)")
-            // [이슈 3 수정] Swagger 예시 날짜 포맷 ISO 8601로 수정 (슬래시 → T 구분자)
             .WithDescription("""
                 잘못 올라간 영수증의 기초 정보를 수정합니다.
                 null로 보낸 필드는 변경되지 않습니다 (Partial Update).
@@ -163,7 +162,6 @@ public static class ReceiptEndpoints
         return TypedResults.Ok(result);
     }
 
-    // [이슈 4 수정] 검증 레이어를 엔드포인트 한 곳으로 통일, 서비스의 truncate 제거
     private static async Task<Results<Ok<UpdateReceiptResult>, ValidationProblem, JsonHttpResult<ApiError>>> Update(
         Guid receiptId,
         UpdateReceiptRequest request,
@@ -176,7 +174,6 @@ public static class ReceiptEndpoints
         if (!TryGetUserId(principal, out var userId))
             return Unauthorized();
 
-        // 수정할 필드가 하나도 없으면 거부
         if (request.StoreName is null && request.Amount is null
             && request.PurchasedAt is null && request.Category is null)
         {
@@ -186,7 +183,6 @@ public static class ReceiptEndpoints
             });
         }
 
-        // 상호명 200자 초과 → 400 (서비스에서 truncate 제거했으므로 여기서만 검증)
         if (request.StoreName is not null && request.StoreName.Trim().Length > 200)
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
@@ -195,12 +191,20 @@ public static class ReceiptEndpoints
             });
         }
 
-        // 음수 금액 → 400 (서비스에서 조건 제거했으므로 여기서만 검증)
         if (request.Amount is < 0)
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             {
                 [nameof(request.Amount)] = ["금액은 0 이상이어야 합니다."]
+            });
+        }
+
+        // [추가] Category 200자 초과 검증 — DB varchar(200) 초과 시 PostgreSQL 런타임 에러 방지
+        if (request.Category is not null && request.Category.Trim().Length > 200)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(request.Category)] = ["카테고리는 200자 이하여야 합니다."]
             });
         }
 

@@ -45,7 +45,9 @@ public record ReceiptDetail(
     DateTimeOffset CreatedAt,
     DateTimeOffset? ProcessedAt);
 
+
 public record ConfirmReceiptCategoryRequest(string FinalCategory);
+
 
 public record ConfirmReceiptCategoryResult(
     Guid ReceiptId,
@@ -54,11 +56,13 @@ public record ConfirmReceiptCategoryResult(
 
 public record ApiError(string Message);
 
+
 public record UpdateReceiptRequest(
     string? StoreName,
     decimal? Amount,
     DateTimeOffset? PurchasedAt,
     string? Category);
+
 
 public record UpdateReceiptResult(
     Guid ReceiptId,

@@ -166,7 +166,6 @@ public class ReceiptService(
         return new ConfirmReceiptCategoryResult(receiptId, finalCategory, aiWasCorrect);
     }
 
-    // ── 영수증 기초 정보 수정 ──────────────────────────
     public async Task<UpdateReceiptResult?> UpdateAsync(
         Guid receiptId, Guid userId, UpdateReceiptRequest request, AppDbContext db,
         CancellationToken ct = default)
@@ -175,15 +174,13 @@ public class ReceiptService(
             .FirstOrDefaultAsync(r => r.Id == receiptId && r.UserId == userId, ct);
         if (receipt is null) return null;
 
-        // [이슈 4 수정] 길이·음수 검증은 엔드포인트에서 이미 400 처리 → 서비스는 단순 대입
         if (!string.IsNullOrWhiteSpace(request.StoreName))
             receipt.StoreName = request.StoreName.Trim();
 
-        // [이슈 5 수정] 음수 검증은 엔드포인트에서 이미 400 처리 → 조건 제거
         if (request.Amount.HasValue)
             receipt.Amount = request.Amount.Value;
 
-        // [이슈 2 수정] PostgreSQL은 UTC(offset=0)만 허용 → 반드시 ToUniversalTime()
+        // PostgreSQL은 UTC(offset=0)만 허용 → 반드시 ToUniversalTime()
         if (request.PurchasedAt.HasValue)
             receipt.PurchasedAt = request.PurchasedAt.Value.ToUniversalTime();
 
@@ -192,11 +189,11 @@ public class ReceiptService(
                 ? null
                 : request.Category.Trim();
 
-        // [이슈 1 수정] SaveChanges 전에 UpdatedAt 기록 → DB에 실제로 저장됨
+        // SaveChanges 전에 UpdatedAt 기록 → DB에 실제로 저장됨
         receipt.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
 
-        // DB에 저장된 receipt.UpdatedAt 값을 그대로 반환 (가짜 타임스탬프 제거)
+
         return new UpdateReceiptResult(
             receipt.Id,
             receipt.StoreName,
@@ -206,6 +203,7 @@ public class ReceiptService(
             receipt.Status,
             receipt.UpdatedAt.Value);
     }
+
 
     private void TryDeleteFile(string absolutePath, Guid receiptId)
     {
@@ -219,8 +217,10 @@ public class ReceiptService(
         }
     }
 
+
     private string ResolveAbsolute(string relativePath) =>
         Path.Combine(env.ContentRootPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
+
 
     private (string RelativePath, string AbsolutePath) BuildPaths(Guid userId, Guid receiptId, string originalFileName)
     {

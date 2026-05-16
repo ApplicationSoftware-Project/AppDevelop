@@ -29,14 +29,11 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
         if (string.IsNullOrWhiteSpace(request.Email))
             return (false, "이메일을 입력하세요.", null);
 
-        // 검증 전에 먼저 정규화
         var email = request.Email.Trim().ToLower();
         var displayName = request.DisplayName?.Trim() ?? string.Empty;
 
-        // [수정] 이메일 길이 제한 (ReDoS 및 DB 오류 방지)
         if (email.Length > 256)
             return (false, "이메일은 256자 이하여야 합니다.", null);
-
         if (!IsValidEmail(email))
             return (false, "유효한 이메일 형식을 입력하세요.", null);
         if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
@@ -49,7 +46,6 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
         if (await db.Users.AnyAsync(u => u.Email == email))
             return (false, "이미 사용 중인 이메일입니다.", null);
 
-        // 관리자 코드 검증
         var role = RoleNames.User;
         if (!string.IsNullOrWhiteSpace(request.AdminCode))
         {
@@ -70,6 +66,8 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
 
         db.Users.Add(user);
         await db.SaveChangesAsync();
+
+        logger.LogInformation("회원가입 완료. UserId={UserId}, Role={Role}", user.Id, user.Role);
 
         return (true, null, new RegisterResult(
             user.Id, user.Email, user.DisplayName, user.Role, user.CreatedAt));
@@ -101,7 +99,6 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
     public async Task<(bool Success, string? Error, RefreshTokenResult? Result)> RefreshAsync(
         RefreshTokenRequest request, AppDbContext db)
     {
-        // [수정] null/빈 토큰으로 DB null 유저 매칭 방지
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
             return (false, "토큰이 제공되지 않았습니다.", null);
 
@@ -121,7 +118,6 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
     // ── 로그아웃 ─────────────────────────────────────
     public async Task RevokeAsync(string refreshToken, AppDbContext db)
     {
-        // [수정] null/빈 토큰으로 DB null 유저 매칭 방지
         if (string.IsNullOrWhiteSpace(refreshToken)) return;
 
         var user = await db.Users.FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
@@ -146,8 +142,7 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
             user.DisplayName = trimmed;
         }
 
-        // [수정] null을 보내면 실제로 null로 저장 (값 삭제 가능)
-        // 빈 문자열("")로 온 경우도 null로 변환해 저장
+        // null → 수정 안 함, 빈 문자열("") → null로 저장(삭제)
         if (request.PhoneNumber is not null)
             user.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber)
                 ? null
@@ -177,6 +172,9 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
         user.RefreshToken = null;
         user.RefreshTokenExpiry = null;
         await db.SaveChangesAsync();
+
+        logger.LogInformation("비밀번호 변경 완료. UserId={UserId}", userId);
+
         return (true, null);
     }
 
@@ -243,7 +241,6 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
     public async Task<(bool Success, string? Error, UserSummary? Result)> AssignRoleAsync(
         AssignRoleRequest request, AppDbContext db)
     {
-        // [수정] Magic string 대신 RoleNames 상수 사용
         var allowed = new[] { RoleNames.User, RoleNames.Admin };
         if (!allowed.Contains(request.Role))
             return (false, $"허용되지 않는 Role입니다. 허용 목록: {string.Join(", ", allowed)}", null);
@@ -251,8 +248,12 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
         var user = await db.Users.FindAsync(request.UserId);
         if (user is null) return (false, "사용자를 찾을 수 없습니다.", null);
 
+        var prevRole = user.Role;
         user.Role = request.Role;
         await db.SaveChangesAsync();
+
+        logger.LogInformation("Role 변경. UserId={UserId}, {PrevRole} → {NewRole}",
+            request.UserId, prevRole, request.Role);
 
         return (true, null, new UserSummary(
             user.Id, user.Email, user.DisplayName, user.Role, user.CreatedAt, user.LastLoginAt));
@@ -273,11 +274,16 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
             db.Users.Remove(user);
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
+
+            logger.LogWarning("사용자 강제 탈퇴. TargetUserId={TargetUserId}, RequesterId={RequesterId}",
+                userId, requesterId);
+
             return true;
         }
-        catch
+        catch (Exception ex)
         {
             await transaction.RollbackAsync();
+            logger.LogError(ex, "사용자 강제 탈퇴 실패. TargetUserId={TargetUserId}", userId);
             return false;
         }
     }
@@ -289,7 +295,6 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
 
         return new AdminStatsResult(
             await db.Users.CountAsync(),
-            // [수정] Magic string 대신 RoleNames 상수 사용
             await db.Users.CountAsync(u => u.Role == RoleNames.Admin),
             await db.Users.CountAsync(u => u.CreatedAt >= todayUtc),
             await db.Receipts.CountAsync(),
@@ -298,8 +303,6 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
     }
 
     // ── JWT 생성 ─────────────────────────────────────
-    // BootstrapServiceCollectionExtensions.cs에 MapInboundClaims = false 설정됨
-    // → JwtRegisteredClaimNames.Sub가 변환 없이 그대로 "sub"로 유지됨 (정상)
     private string GenerateJwt(User user)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSecret));

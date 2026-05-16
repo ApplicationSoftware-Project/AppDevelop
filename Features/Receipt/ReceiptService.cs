@@ -166,6 +166,45 @@ public class ReceiptService(
         return new ConfirmReceiptCategoryResult(receiptId, finalCategory, aiWasCorrect);
     }
 
+    public async Task<UpdateReceiptResult?> UpdateAsync(
+        Guid receiptId, Guid userId, UpdateReceiptRequest request, AppDbContext db,
+        CancellationToken ct = default)
+    {
+        var receipt = await db.Receipts
+            .FirstOrDefaultAsync(r => r.Id == receiptId && r.UserId == userId, ct);
+        if (receipt is null) return null;
+
+        if (!string.IsNullOrWhiteSpace(request.StoreName))
+            receipt.StoreName = request.StoreName.Trim();
+
+        if (request.Amount.HasValue)
+            receipt.Amount = request.Amount.Value;
+
+        // PostgreSQL은 UTC(offset=0)만 허용 → 반드시 ToUniversalTime()
+        if (request.PurchasedAt.HasValue)
+            receipt.PurchasedAt = request.PurchasedAt.Value.ToUniversalTime();
+
+        if (request.Category is not null)
+            receipt.Category = string.IsNullOrWhiteSpace(request.Category)
+                ? null
+                : request.Category.Trim();
+
+        // SaveChanges 전에 UpdatedAt 기록 → DB에 실제로 저장됨
+        receipt.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+
+        return new UpdateReceiptResult(
+            receipt.Id,
+            receipt.StoreName,
+            receipt.Amount,
+            receipt.PurchasedAt,
+            receipt.Category,
+            receipt.Status,
+            receipt.UpdatedAt.Value);
+    }
+
+
     private void TryDeleteFile(string absolutePath, Guid receiptId)
     {
         try
@@ -178,8 +217,10 @@ public class ReceiptService(
         }
     }
 
+
     private string ResolveAbsolute(string relativePath) =>
         Path.Combine(env.ContentRootPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
+
 
     private (string RelativePath, string AbsolutePath) BuildPaths(Guid userId, Guid receiptId, string originalFileName)
     {

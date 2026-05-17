@@ -10,10 +10,12 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace App.Features.Auth;
 
+// [수정] AppDbContext를 생성자 주입으로 변경 — 표준 DI 패턴
 public class AuthService(
     IConfiguration configuration,
     ILogger<AuthService> logger,
-    IWebHostEnvironment env)
+    IWebHostEnvironment env,
+    AppDbContext db)
 {
     private readonly string _jwtSecret = configuration["Jwt:Secret"]
         ?? throw new InvalidOperationException("Jwt:Secret is not configured");
@@ -27,7 +29,7 @@ public class AuthService(
 
     // ── 회원가입 ─────────────────────────────────────
     public async Task<(bool Success, string? Error, RegisterResult? Result)> RegisterAsync(
-        RegisterRequest request, AppDbContext db)
+        RegisterRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
             return (false, "이메일을 입력하세요.", null);
@@ -54,11 +56,8 @@ public class AuthService(
         {
             if (string.IsNullOrWhiteSpace(_adminCode))
                 return (false, "관리자 코드가 서버에 설정되어 있지 않습니다.", null);
-
-            // [수정] 타이밍 어택 방지 — FixedTimeEquals 사용
             if (!ConstantTimeEquals(request.AdminCode.Trim(), _adminCode.Trim()))
                 return (false, "관리자 코드가 올바르지 않습니다.", null);
-
             role = RoleNames.Admin;
         }
 
@@ -81,7 +80,7 @@ public class AuthService(
 
     // ── 로그인 ───────────────────────────────────────
     public async Task<(bool Success, string? Error, LoginResult? Result)> LoginAsync(
-        LoginRequest request, AppDbContext db)
+        LoginRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             return (false, "이메일과 비밀번호를 입력하세요.", null);
@@ -103,7 +102,7 @@ public class AuthService(
 
     // ── 리프레시 토큰 ────────────────────────────────
     public async Task<(bool Success, string? Error, RefreshTokenResult? Result)> RefreshAsync(
-        RefreshTokenRequest request, AppDbContext db)
+        RefreshTokenRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
             return (false, "토큰이 제공되지 않았습니다.", null);
@@ -122,7 +121,7 @@ public class AuthService(
     }
 
     // ── 로그아웃 ─────────────────────────────────────
-    public async Task RevokeAsync(string refreshToken, AppDbContext db)
+    public async Task RevokeAsync(string refreshToken)
     {
         if (string.IsNullOrWhiteSpace(refreshToken)) return;
 
@@ -133,9 +132,22 @@ public class AuthService(
         await db.SaveChangesAsync();
     }
 
+    // ── 내 정보 조회 ──────────────────────────────────
+    public async Task<MeResult?> GetMeAsync(Guid userId)
+    {
+        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        if (user is null) return null;
+
+        return new MeResult(
+            user.Id, user.Email, user.DisplayName, user.Role,
+            user.PhoneNumber, user.ProfileImageUrl,
+            user.EmailNotification, user.PushNotification,
+            user.CreatedAt, user.LastLoginAt);
+    }
+
     // ── 프로필 수정 ──────────────────────────────────
     public async Task<(bool Success, string? Error)> UpdateProfileAsync(
-        Guid userId, UpdateProfileRequest request, AppDbContext db)
+        Guid userId, UpdateProfileRequest request)
     {
         var user = await db.Users.FindAsync(userId);
         if (user is null) return (false, "사용자를 찾을 수 없습니다.");
@@ -148,16 +160,13 @@ public class AuthService(
             user.DisplayName = trimmed;
         }
 
-        // null → 수정 안 함, 빈 문자열("") → null로 저장(삭제)
         if (request.PhoneNumber is not null)
             user.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber)
-                ? null
-                : request.PhoneNumber.Trim();
+                ? null : request.PhoneNumber.Trim();
 
         if (request.ProfileImageUrl is not null)
             user.ProfileImageUrl = string.IsNullOrWhiteSpace(request.ProfileImageUrl)
-                ? null
-                : request.ProfileImageUrl.Trim();
+                ? null : request.ProfileImageUrl.Trim();
 
         await db.SaveChangesAsync();
         return (true, null);
@@ -165,7 +174,7 @@ public class AuthService(
 
     // ── 비밀번호 변경 ────────────────────────────────
     public async Task<(bool Success, string? Error)> ChangePasswordAsync(
-        Guid userId, ChangePasswordRequest request, AppDbContext db)
+        Guid userId, ChangePasswordRequest request)
     {
         var user = await db.Users.FindAsync(userId);
         if (user is null) return (false, "사용자를 찾을 수 없습니다.");
@@ -180,13 +189,12 @@ public class AuthService(
         await db.SaveChangesAsync();
 
         logger.LogInformation("비밀번호 변경 완료. UserId={UserId}", userId);
-
         return (true, null);
     }
 
     // ── 알림 설정 변경 ───────────────────────────────
     public async Task<(bool Success, NotificationResult? Result)> UpdateNotificationAsync(
-        Guid userId, UpdateNotificationRequest request, AppDbContext db)
+        Guid userId, UpdateNotificationRequest request)
     {
         var user = await db.Users.FindAsync(userId);
         if (user is null) return (false, null);
@@ -198,9 +206,17 @@ public class AuthService(
         return (true, new NotificationResult(user.EmailNotification, user.PushNotification));
     }
 
+    // ── 알림 설정 조회 ───────────────────────────────
+    public async Task<NotificationResult?> GetNotificationsAsync(Guid userId)
+    {
+        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        if (user is null) return null;
+        return new NotificationResult(user.EmailNotification, user.PushNotification);
+    }
+
     // ── Admin: 사용자 목록 ───────────────────────────
     public async Task<UserListResult> GetUsersAsync(
-        AppDbContext db, int page, int pageSize, string? search, string? role)
+        int page, int pageSize, string? search, string? role)
     {
         var query = db.Users.AsNoTracking().AsQueryable();
 
@@ -229,7 +245,7 @@ public class AuthService(
     }
 
     // ── Admin: 사용자 상세 조회 ──────────────────────
-    public async Task<AdminUserDetail?> GetUserDetailAsync(Guid userId, AppDbContext db)
+    public async Task<AdminUserDetail?> GetUserDetailAsync(Guid userId)
     {
         var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
         if (user is null) return null;
@@ -245,7 +261,7 @@ public class AuthService(
 
     // ── Admin: Role 변경 ──────────────────────────────
     public async Task<(bool Success, string? Error, UserSummary? Result)> AssignRoleAsync(
-        AssignRoleRequest request, AppDbContext db)
+        AssignRoleRequest request)
     {
         var allowed = new[] { RoleNames.User, RoleNames.Admin };
         if (!allowed.Contains(request.Role))
@@ -266,15 +282,13 @@ public class AuthService(
     }
 
     // ── Admin: 사용자 강제 탈퇴 ──────────────────────
-    // [수정] 영수증 이미지 파일도 함께 삭제
-    public async Task<bool> DeleteUserAsync(Guid userId, Guid requesterId, AppDbContext db)
+    public async Task<bool> DeleteUserAsync(Guid userId, Guid requesterId)
     {
         if (userId == requesterId) return false;
 
         var user = await db.Users.FindAsync(userId);
         if (user is null) return false;
 
-        // DB 삭제 전에 이미지 경로 수집
         var imagePaths = await db.Receipts
             .Where(r => r.UserId == userId && r.ImagePath != null)
             .Select(r => r.ImagePath!)
@@ -288,12 +302,11 @@ public class AuthService(
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            // 트랜잭션 성공 후 이미지 파일 삭제
             foreach (var path in imagePaths)
                 TryDeleteImageFile(path, userId);
 
-            logger.LogWarning("사용자 강제 탈퇴. TargetUserId={TargetUserId}, RequesterId={RequesterId}, ImageCount={Count}",
-                userId, requesterId, imagePaths.Count);
+            logger.LogWarning("사용자 강제 탈퇴. TargetUserId={TargetUserId}, RequesterId={RequesterId}",
+                userId, requesterId);
 
             return true;
         }
@@ -306,8 +319,7 @@ public class AuthService(
     }
 
     // ── Admin: 서비스 전체 통계 ───────────────────────
-    // [수정] Task.WhenAll로 5개 쿼리 병렬 실행
-    public async Task<AdminStatsResult> GetStatsAsync(AppDbContext db)
+    public async Task<AdminStatsResult> GetStatsAsync()
     {
         var todayUtc = DateTimeOffset.UtcNow.Date;
 
@@ -328,6 +340,14 @@ public class AuthService(
             totalReceiptsTask.Result,
             todayNewReceiptsTask.Result,
             DateTimeOffset.UtcNow);
+    }
+
+    // ── Admin: 내부 사용자 조회 ──────────────────────
+    public async Task<InternalUserInfo?> GetInternalUserAsync(Guid userId)
+    {
+        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        if (user is null) return null;
+        return new InternalUserInfo(user.Id, user.Email, user.DisplayName, user.Role);
     }
 
     // ── JWT 생성 ─────────────────────────────────────
@@ -357,13 +377,25 @@ public class AuthService(
 
     // ── 헬퍼 ──────────────────────────────────────────
 
+    // [수정] Path Traversal 방어 — storage 디렉토리 하위인지 검증
     private void TryDeleteImageFile(string relativePath, Guid userId)
     {
         try
         {
-            var absolute = Path.Combine(
-                env.ContentRootPath,
-                relativePath.Replace('/', Path.DirectorySeparatorChar));
+            var storageRoot = Path.GetFullPath(
+                Path.Combine(env.ContentRootPath, "storage"));
+
+            var absolute = Path.GetFullPath(
+                Path.Combine(env.ContentRootPath,
+                    relativePath.Replace('/', Path.DirectorySeparatorChar)));
+
+            // storage 디렉토리 밖이면 삭제 거부
+            if (!absolute.StartsWith(storageRoot + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                logger.LogWarning("경로 탐색 공격 감지. UserId={UserId}, Path={Path}", userId, relativePath);
+                return;
+            }
 
             if (File.Exists(absolute))
                 File.Delete(absolute);
@@ -375,10 +407,8 @@ public class AuthService(
         }
     }
 
-    // [수정] 타이밍 어택 방지 — FixedTimeEquals로 AdminCode 비교
     private static bool ConstantTimeEquals(string a, string b)
     {
-        // 두 문자열을 같은 길이의 바이트 배열로 변환 후 비교
         var maxLen = Math.Max(a.Length, b.Length);
         var bytesA = Encoding.UTF8.GetBytes(a.PadRight(maxLen));
         var bytesB = Encoding.UTF8.GetBytes(b.PadRight(maxLen));

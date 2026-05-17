@@ -44,13 +44,9 @@ public static class AuthEndpoints
 
         auth.MapPut("/me/profile", UpdateProfile)
             .WithSummary("프로필 수정")
-            // [수정] 설명과 로직 일치: null이면 수정 안 함, 빈 문자열이면 삭제
             .WithDescription("""
-                DisplayName, PhoneNumber, ProfileImageUrl을 부분 수정합니다.
-
-                - null 전송 → 해당 필드 수정하지 않음 (생략과 동일)
-                - 빈 문자열("") 전송 → 해당 값을 삭제(null로 저장)
-                - 값 전송 → 해당 값으로 업데이트
+                null 전송 → 해당 필드 수정하지 않음
+                빈 문자열("") 전송 → 해당 값 삭제(null 저장)
                 """)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesValidationProblem()
@@ -80,7 +76,7 @@ public static class AuthEndpoints
                 - page     : 페이지 번호 (기본값 1)
                 - pageSize : 페이지당 항목 수 (기본값 20, 최대 100)
                 - search   : 이메일 또는 표시이름 부분 검색
-                - role     : 역할 필터 (User / Admin)
+                - role     : 역할 필터 (User / Admin / Service)
                 """)
             .Produces<UserListResult>()
             .ProducesValidationProblem();
@@ -107,7 +103,6 @@ public static class AuthEndpoints
             .ProducesValidationProblem();
 
         // ── 내부 전용 API ─────────────────────────────
-        // [수정] Magic string "Service" → RoleNames.Service 상수 사용
         internal_.MapGet("/users/{userId:guid}", GetInternalUser)
             .WithSummary("내부 사용자 정보 조회 (서비스 간 통신 전용)")
             .RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Service));
@@ -116,9 +111,9 @@ public static class AuthEndpoints
     // ── 핸들러 ────────────────────────────────────────
 
     private static async Task<Results<Created<RegisterResult>, ValidationProblem>> Register(
-        RegisterRequest request, AuthService authService, AppDbContext db, ILogger<Program> logger)
+        RegisterRequest request, AuthService authService, ILogger<Program> logger)
     {
-        var (success, error, result) = await authService.RegisterAsync(request, db);
+        var (success, error, result) = await authService.RegisterAsync(request);
         if (!success || result is null)
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             { ["register"] = [error ?? "회원가입에 실패했습니다."] });
@@ -128,9 +123,9 @@ public static class AuthEndpoints
     }
 
     private static async Task<Results<Ok<LoginResult>, UnauthorizedHttpResult>> Login(
-        LoginRequest request, AuthService authService, AppDbContext db, ILogger<Program> logger)
+        LoginRequest request, AuthService authService, ILogger<Program> logger)
     {
-        var (success, error, result) = await authService.LoginAsync(request, db);
+        var (success, error, result) = await authService.LoginAsync(request);
         if (!success || result is null)
         {
             logger.LogWarning("Login 실패. Email={Email}, Reason={Reason}", request.Email, error);
@@ -141,41 +136,40 @@ public static class AuthEndpoints
     }
 
     private static async Task<Results<Ok<RefreshTokenResult>, UnauthorizedHttpResult>> Refresh(
-        RefreshTokenRequest request, AuthService authService, AppDbContext db)
+        RefreshTokenRequest request, AuthService authService)
     {
-        var (success, _, result) = await authService.RefreshAsync(request, db);
+        var (success, _, result) = await authService.RefreshAsync(request);
         return success && result is not null
             ? TypedResults.Ok(result)
             : TypedResults.Unauthorized();
     }
 
     private static async Task<NoContent> Revoke(
-        RefreshTokenRequest request, AuthService authService, AppDbContext db)
+        RefreshTokenRequest request, AuthService authService)
     {
-        await authService.RevokeAsync(request.RefreshToken, db);
+        await authService.RevokeAsync(request.RefreshToken);
         return TypedResults.NoContent();
     }
 
     private static async Task<Results<Ok<MeResult>, UnauthorizedHttpResult>> Me(
-        ClaimsPrincipal principal, AppDbContext db)
-    {
-        var user = await GetUserFromPrincipal(principal, db);
-        if (user is null) return TypedResults.Unauthorized();
-
-        return TypedResults.Ok(new MeResult(
-            user.Id, user.Email, user.DisplayName, user.Role,
-            user.PhoneNumber, user.ProfileImageUrl,
-            user.EmailNotification, user.PushNotification,
-            user.CreatedAt, user.LastLoginAt));
-    }
-
-    private static async Task<Results<NoContent, UnauthorizedHttpResult, ValidationProblem>> UpdateProfile(
-        UpdateProfileRequest request, ClaimsPrincipal principal, AuthService authService, AppDbContext db)
+        ClaimsPrincipal principal, AuthService authService)
     {
         var userId = GetUserId(principal);
         if (userId is null) return TypedResults.Unauthorized();
 
-        var (success, error) = await authService.UpdateProfileAsync(userId.Value, request, db);
+        var result = await authService.GetMeAsync(userId.Value);
+        return result is null
+            ? TypedResults.Unauthorized()
+            : TypedResults.Ok(result);
+    }
+
+    private static async Task<Results<NoContent, UnauthorizedHttpResult, ValidationProblem>> UpdateProfile(
+        UpdateProfileRequest request, ClaimsPrincipal principal, AuthService authService)
+    {
+        var userId = GetUserId(principal);
+        if (userId is null) return TypedResults.Unauthorized();
+
+        var (success, error) = await authService.UpdateProfileAsync(userId.Value, request);
         if (!success)
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             { ["profile"] = [error ?? "프로필 수정에 실패했습니다."] });
@@ -184,12 +178,12 @@ public static class AuthEndpoints
     }
 
     private static async Task<Results<NoContent, UnauthorizedHttpResult, ValidationProblem>> ChangePassword(
-        ChangePasswordRequest request, ClaimsPrincipal principal, AuthService authService, AppDbContext db)
+        ChangePasswordRequest request, ClaimsPrincipal principal, AuthService authService)
     {
         var userId = GetUserId(principal);
         if (userId is null) return TypedResults.Unauthorized();
 
-        var (success, error) = await authService.ChangePasswordAsync(userId.Value, request, db);
+        var (success, error) = await authService.ChangePasswordAsync(userId.Value, request);
         if (!success)
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             { ["password"] = [error ?? "비밀번호 변경에 실패했습니다."] });
@@ -198,21 +192,24 @@ public static class AuthEndpoints
     }
 
     private static async Task<Results<Ok<NotificationResult>, UnauthorizedHttpResult>> GetNotifications(
-        ClaimsPrincipal principal, AppDbContext db)
-    {
-        var user = await GetUserFromPrincipal(principal, db);
-        if (user is null) return TypedResults.Unauthorized();
-
-        return TypedResults.Ok(new NotificationResult(user.EmailNotification, user.PushNotification));
-    }
-
-    private static async Task<Results<Ok<NotificationResult>, UnauthorizedHttpResult>> UpdateNotifications(
-        UpdateNotificationRequest request, ClaimsPrincipal principal, AuthService authService, AppDbContext db)
+        ClaimsPrincipal principal, AuthService authService)
     {
         var userId = GetUserId(principal);
         if (userId is null) return TypedResults.Unauthorized();
 
-        var (success, result) = await authService.UpdateNotificationAsync(userId.Value, request, db);
+        var result = await authService.GetNotificationsAsync(userId.Value);
+        return result is null
+            ? TypedResults.Unauthorized()
+            : TypedResults.Ok(result);
+    }
+
+    private static async Task<Results<Ok<NotificationResult>, UnauthorizedHttpResult>> UpdateNotifications(
+        UpdateNotificationRequest request, ClaimsPrincipal principal, AuthService authService)
+    {
+        var userId = GetUserId(principal);
+        if (userId is null) return TypedResults.Unauthorized();
+
+        var (success, result) = await authService.UpdateNotificationAsync(userId.Value, request);
         return success && result is not null
             ? TypedResults.Ok(result)
             : TypedResults.Unauthorized();
@@ -221,8 +218,7 @@ public static class AuthEndpoints
     // ── Admin 핸들러 ──────────────────────────────────
 
     private static async Task<Results<Ok<UserListResult>, ValidationProblem>> GetUsers(
-        int? page, int? pageSize, string? search, string? role,
-        AuthService authService, AppDbContext db)
+        int? page, int? pageSize, string? search, string? role, AuthService authService)
     {
         var p = page ?? 1;
         var ps = pageSize ?? 20;
@@ -239,22 +235,21 @@ public static class AuthEndpoints
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             { [nameof(role)] = [$"role은 {RoleNames.User}, {RoleNames.Admin}, {RoleNames.Service} 중 하나여야 합니다."] });
 
-        var result = await authService.GetUsersAsync(db, p, ps, search, role);
+        var result = await authService.GetUsersAsync(p, ps, search, role);
         return TypedResults.Ok(result);
     }
 
     private static async Task<Results<Ok<AdminUserDetail>, NotFound>> GetUserDetail(
-        Guid userId, AuthService authService, AppDbContext db)
+        Guid userId, AuthService authService)
     {
-        var detail = await authService.GetUserDetailAsync(userId, db);
+        var detail = await authService.GetUserDetailAsync(userId);
         return detail is null
             ? TypedResults.NotFound()
             : TypedResults.Ok(detail);
     }
 
     private static async Task<Results<NoContent, ValidationProblem, NotFound>> DeleteUser(
-        Guid userId, ClaimsPrincipal principal,
-        AuthService authService, AppDbContext db, ILogger<Program> logger)
+        Guid userId, ClaimsPrincipal principal, AuthService authService, ILogger<Program> logger)
     {
         var requesterId = GetUserId(principal);
         if (requesterId is null)
@@ -265,7 +260,7 @@ public static class AuthEndpoints
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             { [nameof(userId)] = ["자기 자신은 삭제할 수 없습니다."] });
 
-        var deleted = await authService.DeleteUserAsync(userId, requesterId.Value, db);
+        var deleted = await authService.DeleteUserAsync(userId, requesterId.Value);
         if (!deleted) return TypedResults.NotFound();
 
         logger.LogWarning("Admin이 사용자를 강제 탈퇴했습니다. TargetUserId={TargetUserId}, RequesterId={RequesterId}",
@@ -274,23 +269,22 @@ public static class AuthEndpoints
         return TypedResults.NoContent();
     }
 
-    private static async Task<Ok<AdminStatsResult>> GetStats(AuthService authService, AppDbContext db)
+    private static async Task<Ok<AdminStatsResult>> GetStats(AuthService authService)
     {
-        var stats = await authService.GetStatsAsync(db);
+        var stats = await authService.GetStatsAsync();
         return TypedResults.Ok(stats);
     }
 
     private static async Task<Results<Ok<UserSummary>, ValidationProblem, NotFound>> AssignRole(
-        AssignRoleRequest request, AuthService authService, AppDbContext db)
+        AssignRoleRequest request, AuthService authService)
     {
-        var (success, error, result) = await authService.AssignRoleAsync(request, db);
+        var (success, error, result) = await authService.AssignRoleAsync(request);
 
         if (!success || result is null)
         {
             if (error == AuthErrors.UserNotFound)
                 return TypedResults.NotFound();
 
-            // AuthErrors.InvalidRole 또는 기타 에러
             var message = error == AuthErrors.InvalidRole
                 ? $"허용되지 않는 Role입니다. 허용 목록: {RoleNames.User}, {RoleNames.Admin}"
                 : error ?? "Role 변경에 실패했습니다.";
@@ -303,13 +297,12 @@ public static class AuthEndpoints
     }
 
     private static async Task<Results<Ok<InternalUserInfo>, NotFound>> GetInternalUser(
-        Guid userId, AppDbContext db)
+        Guid userId, AuthService authService)
     {
-        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
-        if (user is null) return TypedResults.NotFound();
-
-        return TypedResults.Ok(new InternalUserInfo(
-            user.Id, user.Email, user.DisplayName, user.Role));
+        var result = await authService.GetInternalUserAsync(userId);
+        return result is null
+            ? TypedResults.NotFound()
+            : TypedResults.Ok(result);
     }
 
     // ── 헬퍼 ──────────────────────────────────────────
@@ -317,12 +310,5 @@ public static class AuthEndpoints
     {
         var raw = principal.FindFirstValue(JwtRegisteredClaimNames.Sub);
         return Guid.TryParse(raw, out var guid) ? guid : null;
-    }
-
-    private static async Task<User?> GetUserFromPrincipal(ClaimsPrincipal principal, AppDbContext db)
-    {
-        var userId = GetUserId(principal);
-        if (userId is null) return null;
-        return await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId.Value);
     }
 }

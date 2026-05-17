@@ -319,26 +319,17 @@ public class AuthService(
     }
 
     // ── Admin: 서비스 전체 통계 ───────────────────────
+    // EF Core DbContext는 스레드 안전하지 않으므로 순차 실행
     public async Task<AdminStatsResult> GetStatsAsync()
     {
         var todayUtc = DateTimeOffset.UtcNow.Date;
 
-        var totalUsersTask = db.Users.CountAsync();
-        var totalAdminsTask = db.Users.CountAsync(u => u.Role == RoleNames.Admin);
-        var todayNewUsersTask = db.Users.CountAsync(u => u.CreatedAt >= todayUtc);
-        var totalReceiptsTask = db.Receipts.CountAsync();
-        var todayNewReceiptsTask = db.Receipts.CountAsync(r => r.CreatedAt >= todayUtc);
-
-        await Task.WhenAll(
-            totalUsersTask, totalAdminsTask, todayNewUsersTask,
-            totalReceiptsTask, todayNewReceiptsTask);
-
         return new AdminStatsResult(
-            totalUsersTask.Result,
-            totalAdminsTask.Result,
-            todayNewUsersTask.Result,
-            totalReceiptsTask.Result,
-            todayNewReceiptsTask.Result,
+            await db.Users.CountAsync(),
+            await db.Users.CountAsync(u => u.Role == RoleNames.Admin),
+            await db.Users.CountAsync(u => u.CreatedAt >= todayUtc),
+            await db.Receipts.CountAsync(),
+            await db.Receipts.CountAsync(r => r.CreatedAt >= todayUtc),
             DateTimeOffset.UtcNow);
     }
 

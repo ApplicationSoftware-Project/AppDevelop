@@ -10,7 +10,10 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace App.Features.Auth;
 
-public class AuthService(IConfiguration configuration, ILogger<AuthService> logger)
+public class AuthService(
+    IConfiguration configuration,
+    ILogger<AuthService> logger,
+    IWebHostEnvironment env)
 {
     private readonly string _jwtSecret = configuration["Jwt:Secret"]
         ?? throw new InvalidOperationException("Jwt:Secret is not configured");
@@ -51,8 +54,11 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
         {
             if (string.IsNullOrWhiteSpace(_adminCode))
                 return (false, "관리자 코드가 서버에 설정되어 있지 않습니다.", null);
-            if (request.AdminCode.Trim() != _adminCode.Trim())
+
+            // [수정] 타이밍 어택 방지 — FixedTimeEquals 사용
+            if (!ConstantTimeEquals(request.AdminCode.Trim(), _adminCode.Trim()))
                 return (false, "관리자 코드가 올바르지 않습니다.", null);
+
             role = RoleNames.Admin;
         }
 
@@ -260,12 +266,19 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
     }
 
     // ── Admin: 사용자 강제 탈퇴 ──────────────────────
+    // [수정] 영수증 이미지 파일도 함께 삭제
     public async Task<bool> DeleteUserAsync(Guid userId, Guid requesterId, AppDbContext db)
     {
         if (userId == requesterId) return false;
 
         var user = await db.Users.FindAsync(userId);
         if (user is null) return false;
+
+        // DB 삭제 전에 이미지 경로 수집
+        var imagePaths = await db.Receipts
+            .Where(r => r.UserId == userId && r.ImagePath != null)
+            .Select(r => r.ImagePath!)
+            .ToListAsync();
 
         using var transaction = await db.Database.BeginTransactionAsync();
         try
@@ -275,8 +288,12 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            logger.LogWarning("사용자 강제 탈퇴. TargetUserId={TargetUserId}, RequesterId={RequesterId}",
-                userId, requesterId);
+            // 트랜잭션 성공 후 이미지 파일 삭제
+            foreach (var path in imagePaths)
+                TryDeleteImageFile(path, userId);
+
+            logger.LogWarning("사용자 강제 탈퇴. TargetUserId={TargetUserId}, RequesterId={RequesterId}, ImageCount={Count}",
+                userId, requesterId, imagePaths.Count);
 
             return true;
         }
@@ -289,16 +306,27 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
     }
 
     // ── Admin: 서비스 전체 통계 ───────────────────────
+    // [수정] Task.WhenAll로 5개 쿼리 병렬 실행
     public async Task<AdminStatsResult> GetStatsAsync(AppDbContext db)
     {
         var todayUtc = DateTimeOffset.UtcNow.Date;
 
+        var totalUsersTask = db.Users.CountAsync();
+        var totalAdminsTask = db.Users.CountAsync(u => u.Role == RoleNames.Admin);
+        var todayNewUsersTask = db.Users.CountAsync(u => u.CreatedAt >= todayUtc);
+        var totalReceiptsTask = db.Receipts.CountAsync();
+        var todayNewReceiptsTask = db.Receipts.CountAsync(r => r.CreatedAt >= todayUtc);
+
+        await Task.WhenAll(
+            totalUsersTask, totalAdminsTask, todayNewUsersTask,
+            totalReceiptsTask, todayNewReceiptsTask);
+
         return new AdminStatsResult(
-            await db.Users.CountAsync(),
-            await db.Users.CountAsync(u => u.Role == RoleNames.Admin),
-            await db.Users.CountAsync(u => u.CreatedAt >= todayUtc),
-            await db.Receipts.CountAsync(),
-            await db.Receipts.CountAsync(r => r.CreatedAt >= todayUtc),
+            totalUsersTask.Result,
+            totalAdminsTask.Result,
+            todayNewUsersTask.Result,
+            totalReceiptsTask.Result,
+            todayNewReceiptsTask.Result,
             DateTimeOffset.UtcNow);
     }
 
@@ -325,6 +353,36 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
             signingCredentials: creds);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    // ── 헬퍼 ──────────────────────────────────────────
+
+    private void TryDeleteImageFile(string relativePath, Guid userId)
+    {
+        try
+        {
+            var absolute = Path.Combine(
+                env.ContentRootPath,
+                relativePath.Replace('/', Path.DirectorySeparatorChar));
+
+            if (File.Exists(absolute))
+                File.Delete(absolute);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "영수증 이미지 파일 삭제 실패. UserId={UserId}, Path={Path}",
+                userId, relativePath);
+        }
+    }
+
+    // [수정] 타이밍 어택 방지 — FixedTimeEquals로 AdminCode 비교
+    private static bool ConstantTimeEquals(string a, string b)
+    {
+        // 두 문자열을 같은 길이의 바이트 배열로 변환 후 비교
+        var maxLen = Math.Max(a.Length, b.Length);
+        var bytesA = Encoding.UTF8.GetBytes(a.PadRight(maxLen));
+        var bytesB = Encoding.UTF8.GetBytes(b.PadRight(maxLen));
+        return CryptographicOperations.FixedTimeEquals(bytesA, bytesB);
     }
 
     private static string GenerateRefreshToken()

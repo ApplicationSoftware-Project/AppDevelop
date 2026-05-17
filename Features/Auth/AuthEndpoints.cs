@@ -124,7 +124,7 @@ public static class AuthEndpoints
             { ["register"] = [error ?? "회원가입에 실패했습니다."] });
 
         logger.LogInformation("새 사용자 등록. UserId={UserId}, Role={Role}", result.UserId, result.Role);
-        return TypedResults.Created($"/api/auth/users/{result.UserId}", result);
+        return TypedResults.Created("/api/auth/me", result);
     }
 
     private static async Task<Results<Ok<LoginResult>, UnauthorizedHttpResult>> Login(

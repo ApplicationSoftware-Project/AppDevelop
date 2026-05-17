@@ -1,10 +1,9 @@
+using System.IdentityModel.Tokens.Jwt;
 using App.Features.AI.Data;
 using App.Features.Auth.Models;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
-using System.IdentityModel.Tokens.Jwt;
-
 
 namespace App.Features.Auth;
 
@@ -13,8 +12,6 @@ public static class AuthEndpoints
     public static void MapAuthEndpoints(this WebApplication app)
     {
         var auth = app.MapGroup("/api/auth").WithTags("Auth");
-
-        // [수정] Magic string 대신 RoleNames 상수 사용
         var admin = app.MapGroup("/api/admin").WithTags("Admin")
                        .RequireAuthorization(p => p.RequireRole(RoleNames.Admin));
         var internal_ = app.MapGroup("/api/internal").WithTags("Internal");
@@ -47,7 +44,14 @@ public static class AuthEndpoints
 
         auth.MapPut("/me/profile", UpdateProfile)
             .WithSummary("프로필 수정")
-            .WithDescription("PhoneNumber, ProfileImageUrl에 빈 문자열(\"\") 전송 시 해당 값이 삭제됩니다. (null 전송 시 기존 값 유지)")
+            // [수정] 설명과 로직 일치: null이면 수정 안 함, 빈 문자열이면 삭제
+            .WithDescription("""
+                DisplayName, PhoneNumber, ProfileImageUrl을 부분 수정합니다.
+
+                - null 전송 → 해당 필드 수정하지 않음 (생략과 동일)
+                - 빈 문자열("") 전송 → 해당 값을 삭제(null로 저장)
+                - 값 전송 → 해당 값으로 업데이트
+                """)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesValidationProblem()
             .RequireAuthorization();
@@ -103,9 +107,9 @@ public static class AuthEndpoints
             .ProducesValidationProblem();
 
         // ── 내부 전용 API ─────────────────────────────
+        // [수정] Magic string "Service" → RoleNames.Service 상수 사용
         internal_.MapGet("/users/{userId:guid}", GetInternalUser)
             .WithSummary("내부 사용자 정보 조회 (서비스 간 통신 전용)")
-            // [수정] Magic string 대신 RoleNames 상수 사용
             .RequireAuthorization(p => p.RequireRole(RoleNames.Admin, RoleNames.Service));
     }
 
@@ -120,7 +124,7 @@ public static class AuthEndpoints
             { ["register"] = [error ?? "회원가입에 실패했습니다."] });
 
         logger.LogInformation("새 사용자 등록. UserId={UserId}, Role={Role}", result.UserId, result.Role);
-        return TypedResults.Created("/api/auth/me", result);
+        return TypedResults.Created($"/api/auth/users/{result.UserId}", result);
     }
 
     private static async Task<Results<Ok<LoginResult>, UnauthorizedHttpResult>> Login(
@@ -231,10 +235,9 @@ public static class AuthEndpoints
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             { [nameof(pageSize)] = ["pageSize는 1~100 사이여야 합니다."] });
 
-        // [수정] Magic string 대신 RoleNames 상수 사용
-        if (role is not null && role != RoleNames.User && role != RoleNames.Admin)
+        if (role is not null && role != RoleNames.User && role != RoleNames.Admin && role != RoleNames.Service)
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
-            { [nameof(role)] = [$"role은 {RoleNames.User} 또는 {RoleNames.Admin} 이어야 합니다."] });
+            { [nameof(role)] = [$"role은 {RoleNames.User}, {RoleNames.Admin}, {RoleNames.Service} 중 하나여야 합니다."] });
 
         var result = await authService.GetUsersAsync(db, p, ps, search, role);
         return TypedResults.Ok(result);
@@ -284,11 +287,16 @@ public static class AuthEndpoints
 
         if (!success || result is null)
         {
-            if (error == "사용자를 찾을 수 없습니다.")
+            if (error == AuthErrors.UserNotFound)
                 return TypedResults.NotFound();
 
+            // AuthErrors.InvalidRole 또는 기타 에러
+            var message = error == AuthErrors.InvalidRole
+                ? $"허용되지 않는 Role입니다. 허용 목록: {RoleNames.User}, {RoleNames.Admin}"
+                : error ?? "Role 변경에 실패했습니다.";
+
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
-            { ["role"] = [error ?? "Role 변경에 실패했습니다."] });
+            { ["role"] = [message] });
         }
 
         return TypedResults.Ok(result);
@@ -305,7 +313,6 @@ public static class AuthEndpoints
     }
 
     // ── 헬퍼 ──────────────────────────────────────────
-    // MapInboundClaims = false 설정으로 sub 클레임이 그대로 유지됨
     private static Guid? GetUserId(ClaimsPrincipal principal)
     {
         var raw = principal.FindFirstValue(JwtRegisteredClaimNames.Sub);

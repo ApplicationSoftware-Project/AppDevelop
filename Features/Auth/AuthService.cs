@@ -243,10 +243,10 @@ public class AuthService(IConfiguration configuration, ILogger<AuthService> logg
     {
         var allowed = new[] { RoleNames.User, RoleNames.Admin };
         if (!allowed.Contains(request.Role))
-            return (false, $"허용되지 않는 Role입니다. 허용 목록: {string.Join(", ", allowed)}", null);
+            return (false, AuthErrors.InvalidRole, null);
 
         var user = await db.Users.FindAsync(request.UserId);
-        if (user is null) return (false, "사용자를 찾을 수 없습니다.", null);
+        if (user is null) return (false, AuthErrors.UserNotFound, null);
 
         var prevRole = user.Role;
         user.Role = request.Role;
